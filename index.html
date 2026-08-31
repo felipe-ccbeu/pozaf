@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tela — compartilhamento P2P</title>
+
+  <!-- Grotesque condensada para os rótulos, igual à referência.
+       Sempre com fallback de sistema: se o Google Fonts cair, a página
+       continua legível em vez de virar Times New Roman. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Archivo+Narrow:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+
+  <!-- ===================================================================
+       HEADER — fica ESCONDIDO por padrão e desce quando o mouse encosta
+       no topo da tela. Toda a lógica está no app.js; aqui só marcamos a
+       zona sensível (#gatilho) que fica colada no topo.
+       =================================================================== -->
+  <div id="gatilho" aria-hidden="true"></div>
+
+  <header id="painel">
+
+    <!-- marca, no espírito do logo da referência -->
+    <div class="marca">
+      <span class="marca-jp">画面共有</span>
+      <h1>Tela<sup>®</sup></h1>
+      <span id="modo" class="etiqueta">carregando</span>
+    </div>
+
+    <!-- controles principais -->
+    <div class="controles">
+
+      <label id="qualidade" class="pilula" hidden>
+        <span class="rotulo">Qualidade</span>
+        <select id="sel-qualidade">
+          <option value="1920">1080p</option>
+          <option value="1280" selected>720p</option>
+        </select>
+      </label>
+
+      <button id="btn-principal" class="acao" disabled>
+        <span>…</span>
+      </button>
+
+      <button id="btn-parar" class="pilula" hidden>Parar</button>
+
+      <button id="btn-fullscreen" class="pilula icone" title="Tela cheia (F)">
+        <span id="txt-fullscreen">Tela cheia</span>
+      </button>
+    </div>
+
+    <!-- link da sala: aparece só depois que o host conecta ao broker -->
+    <div id="area-link" class="pilula link" hidden>
+      <span class="rotulo">Link</span>
+      <input id="link" type="text" readonly aria-label="Link da sala">
+      <button id="btn-copiar">Copiar</button>
+    </div>
+
+    <!-- status e contador -->
+    <div id="linha-status">
+      <span class="rotulo">Status</span>
+      <span id="status">Iniciando</span>
+      <span id="contador" class="badge" hidden>0 assistindo</span>
+    </div>
+
+    <div id="aviso" hidden></div>
+  </header>
+
+  <!-- ===================================================================
+       PALCO — o vídeo. A coisa mais clara da página, sobre preto puro.
+       autoplay    : começa sozinho
+       playsinline : ESSENCIAL no iOS. Sem isso o iPhone joga em fullscreen
+                     nativo sozinho e perde o controle da página.
+       muted       : aplicado só na PRÉVIA DO HOST, via app.js — senão o
+                     áudio capturado volta pela caixa de som e dá microfonia.
+       =================================================================== -->
+  <main id="palco">
+    <video id="video" autoplay playsinline hidden></video>
+
+    <div id="vazio">
+      <span class="vazio-jp">待機中</span>
+      <p>Nada sendo exibido ainda.</p>
+      <p class="dica">Mova o mouse até o topo para ver os controles</p>
+    </div>
+  </main>
+
+  <!-- PeerJS via CDN. Tem que vir ANTES do app.js: o app.js usa o global
+       Peer já na primeira execução. -->
+  <script src="https://unpkg.com/peerjs@1.5/dist/peerjs.min.js"></script>
+  <script src="app.js"></script>
+
+</body>
+</html>
