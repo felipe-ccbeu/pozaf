@@ -1,0 +1,55 @@
+/* ==========================================================================
+   PALCO — o video, tela cheia e responsivo
+   O vídeo é a coisa mais clara da pagina; aqui fica so o que o afeta.
+   ========================================================================== */
+
+/* ==========================================================================
+   PALCO — o vídeo
+   ========================================================================== */
+
+#palco {
+  position: absolute;
+  inset: 0;                       /* ocupa a tela inteira, sob o header */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--preto);
+}
+
+video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;            /* nunca corta a tela compartilhada */
+  background: var(--preto);
+  display: block;
+}
+
+#vazio {
+  text-align: center;
+  color: #4A4A4A;
+  user-select: none;
+}
+#vazio p { margin: 0; font-size: 15px; }
+
+/* ==========================================================================
+   MODO TELA CHEIA
+   O elemento em fullscreen precisa de fundo próprio: alguns navegadores
+   pintam branco atrás dele por padrão.
+   ========================================================================== */
+
+html:fullscreen, body:fullscreen { background: var(--preto); }
+
+/* ==========================================================================
+   RESPONSIVO
+   ========================================================================== */
+
+@media (max-width: 720px) {
+  #painel { padding: 12px 14px; gap: 8px 10px; }
+  #area-link { flex-basis: 100%; }
+}
+
+/* Quem prefere menos movimento não leva a animação de deslizar. */
+@media (prefers-reduced-motion: reduce) {
+  #barra  { transition: none; }
+  #painel { transition: opacity .15s ease; }
+}

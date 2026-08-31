@@ -1,0 +1,238 @@
+/* ==========================================================================
+   HEADER — a barra, os botoes e o link da sala
+   A barra que recolhe, as pilulas, o seletor de qualidade, a seta e os
+   avisos. Mexa aqui para ajustar os controles.
+   ========================================================================== */
+
+/* ==========================================================================
+   HEADER — recolhe por clique na seta
+   ========================================================================== */
+
+/* Contenedor que agrupa a barra + a seta pendurada nela.
+   E ele que desliza para fora da tela — assim a seta acompanha a borda
+   inferior do header em vez de ficar solta no rodape da pagina. */
+#barra {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 50;
+  transition: transform .3s cubic-bezier(.4, 0, .2, 1);
+}
+
+/* .recolhido e ligado/desligado pelo app.js. translateY(-100%) esconde a
+   barra inteira; o botao, que fica ABAIXO dela, permanece visivel porque
+   sua altura nao entra nesse calculo. */
+#barra.recolhido { transform: translateY(-100%); }
+
+#painel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 14px 18px;
+
+  background: rgba(0, 0, 0, .92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--borda);
+
+  transition: opacity .2s ease;
+}
+
+/* Com a barra recolhida, nada dentro do painel pode ser clicado nem
+   receber foco por Tab — senao o usuario tabula para um botao invisivel. */
+#barra.recolhido #painel {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+/* ------------------------------------------------------------ controles */
+
+.controles {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.etiqueta {
+  font-family: var(--fonte-cond);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--tinta);
+  background: var(--pessego);
+  border-radius: 20px;
+  padding: 5px 12px;
+  white-space: nowrap;
+}
+
+/* botão-pílula de contorno, o padrão da referência */
+.pilula {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--fonte);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--branco);
+  background: transparent;
+  border: 1px solid #3A3A3A;
+  border-radius: 999px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease;
+}
+.pilula:hover { background: #161616; border-color: #5A5A5A; }
+
+/* botão principal: pêssego cheio, texto escuro */
+.acao {
+  font-family: var(--fonte);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--tinta);
+  background: var(--pessego);
+  border: 1px solid var(--pessego);
+  border-radius: 999px;
+  padding: 9px 22px;
+  cursor: pointer;
+  transition: background .15s ease, transform .1s ease;
+}
+.acao:hover:not(:disabled)  { background: var(--creme); }
+.acao:active:not(:disabled) { transform: translateY(1px); }
+.acao:disabled { opacity: .35; cursor: default; }
+
+/* estado "transmitindo": o botão principal vira laranja */
+.acao.ativo {
+  background: var(--laranja);
+  border-color: var(--laranja);
+  color: var(--branco);
+}
+.acao.ativo:hover:not(:disabled) { background: #FF7038; }
+
+#qualidade { padding: 5px 8px 5px 14px; }
+
+select {
+  font-family: var(--fonte);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--branco);
+  background: transparent;
+  border: 0;
+  padding: 3px 4px;
+  cursor: pointer;
+  outline: none;
+}
+/* o menu aberto é desenhado pelo SO: precisa de fundo escuro explícito */
+select option { background: #111; color: var(--branco); }
+
+/* --------------------------------------------- botao de recolher a barra */
+
+/* Pendurado na borda inferior do header, centralizado. Fica dentro de
+   #barra mas FORA de #painel: assim desliza junto com a barra sem herdar o
+   visibility:hidden dela, e continua clicavel com o header recolhido.
+   position:absolute + top:100% o encosta exatamente embaixo do painel,
+   qualquer que seja a altura dele (que muda quando o link e o aviso
+   aparecem). */
+.seta-header {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 24px;
+
+  color: var(--tinta);
+  background: var(--pessego);
+  border: 0;
+  border-radius: 0 0 12px 12px;   /* so os cantos de baixo: parece lingueta */
+  cursor: pointer;
+  padding: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .45);
+  transition: background .15s ease, height .15s ease;
+}
+.seta-header:hover { background: var(--creme); height: 28px; }
+
+/* A seta gira 180 graus com a barra recolhida: aponta para baixo,
+   indicando "clique para trazer de volta". A transicao fica no <svg> para
+   nao brigar com o translateX do botao. */
+.seta-header svg { transition: transform .3s cubic-bezier(.4, 0, .2, 1); }
+.seta-header.fechado svg { transform: rotate(180deg); }
+
+/* ------------------------------------------------------------- link */
+
+#area-link {
+  flex: 1 1 320px;
+  min-width: 0;                   /* deixa o input encolher no flex */
+  padding: 5px 6px 5px 16px;
+  cursor: default;
+}
+#area-link:hover { background: transparent; border-color: #3A3A3A; }
+
+#link {
+  flex: 1;
+  min-width: 0;
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 12px;
+  color: var(--pessego);
+  background: transparent;
+  border: 0;
+  padding: 4px 0;
+  outline: none;
+}
+
+#btn-copiar {
+  font-family: var(--fonte-cond);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--tinta);
+  background: var(--pessego);
+  border: 0;
+  border-radius: 999px;
+  padding: 7px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+#btn-copiar:hover { background: var(--creme); }
+
+/* -------------------------------------------------- status e avisos */
+
+/* status inline, logo depois da etiqueta de modo */
+#status {
+  font-size: 13px;
+  color: var(--cinza);
+  margin-right: auto;            /* empurra os controles para a direita */
+  min-width: 0;
+}
+#status.ok   { color: var(--pessego); }
+#status.erro { color: var(--laranja); }
+
+.badge {
+  font-family: var(--fonte-cond);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--tinta);
+  background: var(--pessego);
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+
+/* aviso: bloco pêssego, como os painéis da referência */
+#aviso {
+  width: 100%;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--tinta);
+  background: var(--pessego);
+  border-radius: 10px;
+  padding: 10px 14px;
+}

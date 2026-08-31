@@ -45,7 +45,7 @@ podem confundir o broker.
 ## Publicar no GitHub Pages
 
 ```bash
-git add index.html app.js estilo.css README.md
+git add index.html css js README.md
 git commit -m "compartilhamento de tela p2p"
 git push
 ```
@@ -56,9 +56,27 @@ Depois: **Settings → Pages → Source: Deploy from a branch → `main` / `root
 
 O GitHub Pages já serve HTTPS, então tudo funciona.
 
+## Estrutura
+
+```
+index.html          marcação
+css/base.css        paleta, tipografia, reset  ← mexa aqui p/ mudar o tema
+css/header.css      barra, botões, seta, link
+css/palco.css       vídeo, tela cheia, responsivo
+js/app.js           roteamento host/espectador (ponto de entrada)
+js/config.js        TURN, STUN                 ← mexa aqui p/ ligar o TURN
+js/ui.js            status, avisos, a barra    ← mexa aqui p/ ajustes visuais
+js/tela-cheia.js    fullscreen e atalhos F / H
+js/host.js          capturar a tela e transmitir
+js/espectador.js    entrar na sala e receber
+```
+
+Módulos ES nativos — continua **sem build step e sem npm**. O `index.html`
+carrega só `js/app.js` com `type="module"`; os `import` puxam o resto.
+
 ## Configuração
 
-Tudo que dá para ajustar está no bloco `CONFIG`, no topo de `app.js`:
+Tudo que dá para ajustar está no bloco `CONFIG`, no topo de `js/config.js`:
 
 - **TURN** (opcional): se algum amigo conectar mas o vídeo nunca aparecer, é
   NAT restritivo. Crie conta grátis em <https://dashboard.metered.ca> (20 GB/mês)

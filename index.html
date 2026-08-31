@@ -12,28 +12,29 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Archivo+Narrow:wght@500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="estilo.css">
+  <!-- Tres arquivos em <link> paralelos, e nao @import: o navegador baixa
+       os tres de uma vez, enquanto @import so descobre o segundo depois de
+       baixar o primeiro. Ordem importa: base define as variaveis. -->
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/header.css">
+  <link rel="stylesheet" href="css/palco.css">
 </head>
 <body>
 
   <!-- ===================================================================
-       HEADER — fica ESCONDIDO por padrão e desce quando o mouse encosta
-       no topo da tela. Toda a lógica está no app.js; aqui só marcamos a
-       zona sensível (#gatilho) que fica colada no topo.
+       HEADER — recolhe e reabre por CLIQUE, nunca por hover.
+       A seta de recolher (#btn-header) fica pendurada na borda inferior
+       da barra e desliza junto com ela.
        =================================================================== -->
-  <div id="gatilho" aria-hidden="true"></div>
+  <div id="barra">
+    <header id="painel">
 
-  <header id="painel">
-
-    <!-- marca, no espírito do logo da referência -->
-    <div class="marca">
-      <span class="marca-jp">画面共有</span>
-      <h1>Tela<sup>®</sup></h1>
-      <span id="modo" class="etiqueta">carregando</span>
-    </div>
-
-    <!-- controles principais -->
     <div class="controles">
+
+      <!-- etiqueta de modo + status, na MESMA linha -->
+      <span id="modo" class="etiqueta">…</span>
+      <span id="status">Iniciando</span>
+      <span id="contador" class="badge" hidden>0 assistindo</span>
 
       <label id="qualidade" class="pilula" hidden>
         <span class="rotulo">Qualidade</span>
@@ -49,7 +50,7 @@
 
       <button id="btn-parar" class="pilula" hidden>Parar</button>
 
-      <button id="btn-fullscreen" class="pilula icone" title="Tela cheia (F)">
+      <button id="btn-fullscreen" class="pilula" title="Tela cheia (F)">
         <span id="txt-fullscreen">Tela cheia</span>
       </button>
     </div>
@@ -61,15 +62,23 @@
       <button id="btn-copiar">Copiar</button>
     </div>
 
-    <!-- status e contador -->
-    <div id="linha-status">
-      <span class="rotulo">Status</span>
-      <span id="status">Iniciando</span>
-      <span id="contador" class="badge" hidden>0 assistindo</span>
-    </div>
+      <div id="aviso" hidden></div>
+    </header>
 
-    <div id="aviso" hidden></div>
-  </header>
+    <!-- Seta pendurada na borda inferior do header. Fica dentro de #barra
+         (e nao de #painel) para nao herdar o visibility:hidden do painel
+         recolhido — mas desliza junto com ele, porque quem se move e a
+         #barra inteira. A seta gira 180 graus conforme o estado. -->
+    <button id="btn-header" class="seta-header" title="Recolher barra (H)"
+            aria-label="Recolher barra" aria-expanded="true"
+            aria-controls="painel">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <path d="M6 15l6-6 6 6" fill="none" stroke="currentColor"
+              stroke-width="2.2" stroke-linecap="round"
+              stroke-linejoin="round"/>
+      </svg>
+    </button>
+  </div>
 
   <!-- ===================================================================
        PALCO — o vídeo. A coisa mais clara da página, sobre preto puro.
@@ -83,16 +92,18 @@
     <video id="video" autoplay playsinline hidden></video>
 
     <div id="vazio">
-      <span class="vazio-jp">待機中</span>
       <p>Nada sendo exibido ainda.</p>
-      <p class="dica">Mova o mouse até o topo para ver os controles</p>
     </div>
   </main>
 
-  <!-- PeerJS via CDN. Tem que vir ANTES do app.js: o app.js usa o global
-       Peer já na primeira execução. -->
+  <!-- PeerJS via CDN, script classico: define o global Peer.
+       Tem que vir ANTES dos modulos, que o usam. -->
   <script src="https://unpkg.com/peerjs@1.5/dist/peerjs.min.js"></script>
-  <script src="app.js"></script>
+
+  <!-- Ponto de entrada. type="module" carrega os outros js/ via import.
+       Modulos sao defer por padrao, entao rodam depois do HTML pronto —
+       por isso o app.js pode buscar elementos sem esperar DOMContentLoaded. -->
+  <script type="module" src="js/app.js"></script>
 
 </body>
 </html>
