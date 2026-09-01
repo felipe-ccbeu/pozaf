@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <title>WebRTC — Exemplo 0: loopback na mesma aba</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; }
+    textarea { width: 100%; height: 80px; font-family: monospace; font-size: 12px; }
+    button { padding: .5rem 1rem; margin: .25rem .25rem .25rem 0; cursor: pointer; }
+    #log { background: #111; color: #0f0; padding: 1rem; font-family: monospace; font-size: 13px;
+           white-space: pre-wrap; border-radius: 6px; min-height: 120px; }
+    .row { display: flex; gap: .5rem; margin: .5rem 0; }
+    .row input { flex: 1; padding: .5rem; }
+  </style>
+</head>
+<body>
+  <h1>Exemplo 0 — dois peers, mesma aba, zero servidor</h1>
+  <p>Objetivo: entender <code>RTCPeerConnection</code> e <code>RTCDataChannel</code> isoladamente.</p>
+
+  <button id="start">1. Criar conexão + DataChannel + Offer</button>
+  <button id="answer">2. Peer B responde (Answer)</button>
+  <button id="connect">3. Peer A aceita a Answer</button>
+
+  <div class="row">
+    <input id="msg" placeholder="digite uma mensagem e Enter" disabled>
+  </div>
+
+  <div id="log">aguardando...</div>
+
+  <script>
+    const log = (...a) => {
+      document.getElementById('log').textContent += '\n' + a.join(' ');
+      console.log(...a);
+    };
+
+    // Sem STUN aqui: como é tudo local (host candidates), não precisa.
+    const config = { iceServers: [] };
+
+    let pcA, pcB, channelA, channelB;
+
+    document.getElementById('start').onclick = async () => {
+      pcA = new RTCPeerConnection(config);
+      pcB = new RTCPeerConnection(config);
+
+      // --- troca de ICE candidates: normalmente isso passaria pelo signaling.
+      // Aqui a gente "cabeia" um no outro na mão.
+      pcA.onicecandidate = e => { if (e.candidate) pcB.addIceCandidate(e.candidate); };
+      pcB.onicecandidate = e => { if (e.candidate) pcA.addIceCandidate(e.candidate); };
+
+      pcA.oniceconnectionstatechange = () => log('[A] ICE:', pcA.iceConnectionState);
+      pcB.oniceconnectionstatechange = () => log('[B] ICE:', pcB.iceConnectionState);
+
+      // Peer A CRIA o canal. Peer B RECEBE via evento.
+      channelA = pcA.createDataChannel('chat');
+      channelA.onopen = () => {
+        log('[A] canal aberto! pode mandar mensagem.');
+        document.getElementById('msg').disabled = false;
+      };
+      channelA.onmessage = e => log('[A] recebeu:', e.data);
+
+      pcB.ondatachannel = e => {
+        channelB = e.channel;
+        channelB.onopen = () => log('[B] canal aberto!');
+        channelB.onmessage = e => {
+          log('[B] recebeu:', e.data);
+          channelB.send('pong (resposta automatica de B)');
+        };
+      };
+
+      const offer = await pcA.createOffer();
+      await pcA.setLocalDescription(offer);
+      log('[A] offer criada e setada como localDescription.');
+      log('[A] SDP offer (resumido):', offer.sdp.split('\n')[0], '...');
+    };
+
+    document.getElementById('answer').onclick = async () => {
+      // Peer B recebe a offer de A e responde
+      await pcB.setRemoteDescription(pcA.localDescription);
+      const answer = await pcB.createAnswer();
+      await pcB.setLocalDescription(answer);
+      log('[B] recebeu a offer, criou a answer.');
+    };
+
+    document.getElementById('connect').onclick = async () => {
+      // Peer A recebe a answer de B — fecha o ciclo
+      await pcA.setRemoteDescription(pcB.localDescription);
+      log('[A] recebeu a answer. Negociacao completa, ICE vai conectar...');
+    };
+
+    document.getElementById('msg').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && e.target.value) {
+        channelA.send(e.target.value);
+        log('[A] enviou:', e.target.value);
+        e.target.value = '';
+      }
+    });
+  </script>
+</body>
+</html>

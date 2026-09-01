@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WebRTC — Exemplo 1: PC x celular, signaling na mao</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 1.5rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.3rem; }
+    textarea { width: 100%; height: 110px; font-family: monospace; font-size: 11px; box-sizing: border-box; }
+    button { padding: .6rem 1rem; margin: .3rem .3rem .3rem 0; cursor: pointer; font-size: 1rem; }
+    #log { background: #111; color: #0f0; padding: 1rem; font: 13px monospace;
+           white-space: pre-wrap; border-radius: 6px; min-height: 100px; margin-top: 1rem; }
+    input { width: 100%; padding: .6rem; font-size: 1rem; box-sizing: border-box; margin-top: .5rem; }
+    .step { border-left: 3px solid #ccc; padding-left: 1rem; margin: 1rem 0; }
+    fieldset { margin: 1rem 0; }
+  </style>
+</head>
+<body>
+  <h1>Teste P2P: PC &harr; celular (4G)</h1>
+
+  <fieldset>
+    <legend><b>Quem e voce?</b></legend>
+    <button id="beCaller">Sou o CHAMADOR (comeca a conexao)</button>
+    <button id="beCallee">Sou o RECEPTOR (entra na conexao)</button>
+  </fieldset>
+
+  <div id="callerFlow" style="display:none">
+    <div class="step">
+      <b>1.</b> Clique para gerar sua OFFER. Espere uns 3s (coletando rotas de rede).<br>
+      <button id="genOffer">Gerar Offer</button>
+      <textarea id="offerOut" placeholder="a offer aparece aqui — copie tudo e mande pro outro aparelho"></textarea>
+    </div>
+    <div class="step">
+      <b>2.</b> Cole aqui a ANSWER que o receptor te mandou de volta:<br>
+      <textarea id="answerIn" placeholder="cole a answer aqui"></textarea>
+      <button id="acceptAnswer">Aceitar Answer</button>
+    </div>
+  </div>
+
+  <div id="calleeFlow" style="display:none">
+    <div class="step">
+      <b>1.</b> Cole aqui a OFFER que o chamador te mandou:<br>
+      <textarea id="offerIn" placeholder="cole a offer aqui"></textarea>
+      <button id="genAnswer">Gerar Answer</button>
+    </div>
+    <div class="step">
+      <b>2.</b> Copie esta ANSWER e mande de volta pro chamador:<br>
+      <textarea id="answerOut" placeholder="a answer aparece aqui"></textarea>
+    </div>
+  </div>
+
+  <input id="msg" placeholder="conexao aberta? digite e Enter" disabled>
+  <div id="log">escolha seu papel acima...</div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const log = (...a) => { $('log').textContent += '\n' + a.join(' '); };
+
+    // STUN publico do Google: necessario pra descobrir o IP publico de cada lado.
+    const config = {
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    };
+
+    let pc, channel;
+
+    function wireChannel(ch) {
+      channel = ch;
+      ch.onopen = () => {
+        log('>>> CANAL P2P ABERTO! <<<');
+        $('msg').disabled = false;
+      };
+      ch.onclose = () => log('canal fechado.');
+      ch.onmessage = e => log('recebeu:', e.data);
+    }
+
+    function setupPc() {
+      pc = new RTCPeerConnection(config);
+      pc.oniceconnectionstatechange = () => {
+        log('ICE state:', pc.iceConnectionState);
+        if (pc.iceConnectionState === 'failed')
+          log('FALHOU. Provavelmente CGNAT dos dois lados — precisaria de TURN.');
+      };
+      pc.onicecandidate = e => {
+        if (e.candidate) {
+          // loga o tipo de candidato: host / srflx (via STUN) / relay (via TURN)
+          const t = e.candidate.candidate.split(' ')[7];
+          log('candidato:', t);
+        } else {
+          log('coleta de candidatos terminou.');
+        }
+      };
+    }
+
+    // --- CHAMADOR ---
+    $('beCaller').onclick = () => {
+      $('callerFlow').style.display = 'block';
+      $('calleeFlow').style.display = 'none';
+      $('log').textContent = 'papel: CHAMADOR';
+    };
+
+    $('genOffer').onclick = async () => {
+      setupPc();
+      wireChannel(pc.createDataChannel('chat'));
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      log('offer criada, aguardando ICE gathering completo...');
+      // Espera juntar todos os candidatos ANTES de exportar o SDP (vanilla ICE).
+      await waitForIceComplete(pc);
+      $('offerOut').value = JSON.stringify(pc.localDescription);
+      log('offer pronta! copie o texto do campo acima.');
+    };
+
+    $('acceptAnswer').onclick = async () => {
+      const answer = JSON.parse($('answerIn').value);
+      await pc.setRemoteDescription(answer);
+      log('answer aceita. ICE deve conectar em instantes...');
+    };
+
+    // --- RECEPTOR ---
+    $('beCallee').onclick = () => {
+      $('calleeFlow').style.display = 'block';
+      $('callerFlow').style.display = 'none';
+      $('log').textContent = 'papel: RECEPTOR';
+    };
+
+    $('genAnswer').onclick = async () => {
+      setupPc();
+      pc.ondatachannel = e => wireChannel(e.channel);
+      const offer = JSON.parse($('offerIn').value);
+      await pc.setRemoteDescription(offer);
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      log('answer criada, aguardando ICE gathering...');
+      await waitForIceComplete(pc);
+      $('answerOut').value = JSON.stringify(pc.localDescription);
+      log('answer pronta! copie e mande de volta.');
+    };
+
+    // Utilitario: resolve quando o ICE gathering acaba (ou depois de 4s).
+    function waitForIceComplete(pc) {
+      return new Promise(resolve => {
+        if (pc.iceGatheringState === 'complete') return resolve();
+        const check = () => {
+          if (pc.iceGatheringState === 'complete') {
+            pc.removeEventListener('icegatheringstatechange', check);
+            resolve();
+          }
+        };
+        pc.addEventListener('icegatheringstatechange', check);
+        setTimeout(resolve, 4000); // fallback: nem sempre dispara 'complete'
+      });
+    }
+
+    $('msg').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && e.target.value && channel) {
+        channel.send(e.target.value);
+        log('enviou:', e.target.value);
+        e.target.value = '';
+      }
+    });
+  </script>
+</body>
+</html>
