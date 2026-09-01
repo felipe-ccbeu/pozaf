@@ -3,141 +3,536 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>WebRTC — Exemplo 1: PC x celular, signaling na mao</title>
+  <title>WebRTC — Exemplo 1 (interativo): PC x celular, signaling na mao</title>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 1.5rem auto; padding: 0 1rem; }
-    h1 { font-size: 1.3rem; }
-    textarea { width: 100%; height: 110px; font-family: monospace; font-size: 11px; box-sizing: border-box; }
-    button { padding: .6rem 1rem; margin: .3rem .3rem .3rem 0; cursor: pointer; font-size: 1rem; }
-    #log { background: #111; color: #0f0; padding: 1rem; font: 13px monospace;
-           white-space: pre-wrap; border-radius: 6px; min-height: 100px; margin-top: 1rem; }
-    input { width: 100%; padding: .6rem; font-size: 1rem; box-sizing: border-box; margin-top: .5rem; }
-    .step { border-left: 3px solid #ccc; padding-left: 1rem; margin: 1rem 0; }
-    fieldset { margin: 1rem 0; }
+    :root {
+      --bg: #0d1117; --panel: #161b22; --border: #30363d; --text: #c9d1d9;
+      --muted: #8b949e; --accent: #58a6ff; --ok: #3fb950; --warn: #d29922; --err: #f85149;
+      --code-bg: #010409;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text);
+      max-width: 1100px; margin: 0 auto; padding: 1rem; line-height: 1.5;
+    }
+    h1 { font-size: 1.25rem; margin: .5rem 0; }
+    h2 { font-size: 1rem; color: var(--accent); margin: 1.2rem 0 .4rem; }
+    .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+    .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+    fieldset { border: 1px solid var(--border); border-radius: 8px; margin: 0 0 1rem; padding: .8rem; }
+    legend { padding: 0 .4rem; color: var(--muted); font-size: .85rem; }
+    button {
+      background: #21262d; color: var(--text); border: 1px solid var(--border);
+      padding: .55rem .9rem; margin: .25rem .25rem .25rem 0; cursor: pointer;
+      font-size: .95rem; border-radius: 6px;
+    }
+    button:hover:not(:disabled) { border-color: var(--accent); }
+    button:disabled { opacity: .4; cursor: not-allowed; }
+    button.primary { background: #238636; border-color: #2ea043; color: #fff; }
+    textarea {
+      width: 100%; height: 90px; font-family: ui-monospace, monospace; font-size: 10.5px;
+      background: var(--code-bg); color: var(--muted); border: 1px solid var(--border);
+      border-radius: 6px; padding: .5rem; resize: vertical;
+    }
+    input[type=text] {
+      width: 100%; padding: .6rem; font-size: 1rem; background: var(--code-bg); color: var(--text);
+      border: 1px solid var(--border); border-radius: 6px;
+    }
+    .step { border-left: 3px solid var(--border); padding-left: .9rem; margin: .9rem 0; }
+    .step.active { border-color: var(--accent); }
+    .step.done { border-color: var(--ok); }
+    #log {
+      background: var(--code-bg); color: var(--ok); padding: .8rem; border-radius: 6px;
+      font: 12px ui-monospace, monospace; white-space: pre-wrap; min-height: 140px;
+      max-height: 320px; overflow-y: auto; border: 1px solid var(--border);
+    }
+    .log-info { color: var(--muted); }
+    .log-ok { color: var(--ok); }
+    .log-warn { color: var(--warn); }
+    .log-err { color: var(--err); }
+    .log-ev { color: var(--accent); }
+
+    /* painel de explicacao */
+    #explain { min-height: 400px; }
+    .exp-title { font-size: 1.05rem; color: var(--accent); margin-bottom: .3rem; }
+    .exp-what { margin: .5rem 0; }
+    .exp-why {
+      background: #1c2128; border-left: 3px solid var(--warn); padding: .6rem .8rem;
+      border-radius: 0 6px 6px 0; margin: .6rem 0; font-size: .92rem;
+    }
+    .exp-why b { color: var(--warn); }
+    pre.code {
+      background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px;
+      padding: .7rem; overflow-x: auto; font: 12px ui-monospace, monospace; margin: .6rem 0;
+    }
+    pre.code .cmt { color: #6e7681; }
+    pre.code .kw { color: #ff7b72; }
+    pre.code .fn { color: #d2a8ff; }
+    pre.code .str { color: #a5d6ff; }
+    pre.code .hl { background: rgba(88,166,255,.15); display: block; margin: 0 -.7rem; padding: 0 .7rem; }
+
+    .pill { display: inline-block; padding: .1rem .5rem; border-radius: 999px; font-size: .78rem;
+            border: 1px solid var(--border); margin-right: .3rem; }
+    .pill.host { color: #79c0ff; border-color: #1f6feb; }
+    .pill.srflx { color: #56d364; border-color: #238636; }
+    .pill.relay { color: #d29922; border-color: #9e6a03; }
+    .pill.prflx { color: #db61a2; border-color: #bf3989; }
+
+    table.cand { width: 100%; border-collapse: collapse; font-size: .82rem; margin-top: .5rem; }
+    table.cand th, table.cand td { border: 1px solid var(--border); padding: .35rem .5rem; text-align: left; }
+    table.cand th { color: var(--muted); }
+    .state-track { display: flex; gap: .3rem; flex-wrap: wrap; margin: .5rem 0; }
+    .state-track span { padding: .15rem .5rem; border-radius: 4px; font-size: .78rem; background: #21262d; color: var(--muted); }
+    .state-track span.on { background: var(--accent); color: #000; font-weight: 600; }
+    a { color: var(--accent); }
+    .small { font-size: .85rem; color: var(--muted); }
   </style>
 </head>
 <body>
-  <h1>Teste P2P: PC &harr; celular (4G)</h1>
+  <h1>Teste P2P interativo: PC &harr; celular (4G)</h1>
+  <p class="small">
+    Cada botao que voce aperta e cada evento que o navegador dispara aparece explicado no painel da direita,
+    com o trecho de codigo correspondente e o motivo de ser assim.
+    Diagrama completo: <a href="./diagrama.html" target="_blank">abrir artefato visual</a>.
+  </p>
 
-  <fieldset>
-    <legend><b>Quem e voce?</b></legend>
-    <button id="beCaller">Sou o CHAMADOR (comeca a conexao)</button>
-    <button id="beCallee">Sou o RECEPTOR (entra na conexao)</button>
-  </fieldset>
+  <div class="layout">
+    <!-- ===================== COLUNA ESQUERDA: A APLICACAO ===================== -->
+    <div class="panel">
+      <fieldset>
+        <legend>Quem e voce?</legend>
+        <button id="beCaller">Sou o CHAMADOR</button>
+        <button id="beCallee">Sou o RECEPTOR</button>
+        <div class="small" id="roleHint">O CHAMADOR gera a offer. O RECEPTOR responde com a answer.</div>
+      </fieldset>
 
-  <div id="callerFlow" style="display:none">
-    <div class="step">
-      <b>1.</b> Clique para gerar sua OFFER. Espere uns 3s (coletando rotas de rede).<br>
-      <button id="genOffer">Gerar Offer</button>
-      <textarea id="offerOut" placeholder="a offer aparece aqui — copie tudo e mande pro outro aparelho"></textarea>
+      <div id="callerFlow" style="display:none">
+        <div class="step" id="s-caller-1">
+          <b>1.</b> Gere sua OFFER (aguarde ~4s coletando rotas):<br>
+          <button id="genOffer" class="primary">Gerar Offer</button>
+          <textarea id="offerOut" readonly placeholder="a offer aparece aqui — copie tudo e mande pro outro aparelho (WhatsApp)"></textarea>
+        </div>
+        <div class="step" id="s-caller-2">
+          <b>2.</b> Cole a ANSWER que o receptor devolveu:<br>
+          <textarea id="answerIn" placeholder="cole a answer aqui"></textarea>
+          <button id="acceptAnswer">Aceitar Answer</button>
+        </div>
+      </div>
+
+      <div id="calleeFlow" style="display:none">
+        <div class="step" id="s-callee-1">
+          <b>1.</b> Cole a OFFER que o chamador te mandou:<br>
+          <textarea id="offerIn" placeholder="cole a offer aqui"></textarea>
+          <button id="genAnswer" class="primary">Gerar Answer</button>
+        </div>
+        <div class="step" id="s-callee-2">
+          <b>2.</b> Copie esta ANSWER e mande de volta:<br>
+          <textarea id="answerOut" readonly placeholder="a answer aparece aqui"></textarea>
+        </div>
+      </div>
+
+      <h2>Estado da conexao</h2>
+      <div class="small">signalingState:</div>
+      <div class="state-track" id="track-sig">
+        <span data-s="stable">stable</span>
+        <span data-s="have-local-offer">have-local-offer</span>
+        <span data-s="have-remote-offer">have-remote-offer</span>
+        <span data-s="stable2">stable (fechado)</span>
+      </div>
+      <div class="small">iceConnectionState:</div>
+      <div class="state-track" id="track-ice">
+        <span data-s="new">new</span>
+        <span data-s="checking">checking</span>
+        <span data-s="connected">connected</span>
+        <span data-s="completed">completed</span>
+        <span data-s="failed">failed</span>
+      </div>
+
+      <h2>Candidatos ICE coletados</h2>
+      <table class="cand" id="candTable">
+        <thead><tr><th>tipo</th><th>endereco:porta</th><th>protocolo</th><th>o que e</th></tr></thead>
+        <tbody></tbody>
+      </table>
+
+      <h2>Chat P2P</h2>
+      <input type="text" id="msg" placeholder="conexao aberta? digite e Enter" disabled>
+
+      <h2>Log de eventos</h2>
+      <div id="log"><span class="log-info">escolha seu papel acima...</span></div>
     </div>
-    <div class="step">
-      <b>2.</b> Cole aqui a ANSWER que o receptor te mandou de volta:<br>
-      <textarea id="answerIn" placeholder="cole a answer aqui"></textarea>
-      <button id="acceptAnswer">Aceitar Answer</button>
+
+    <!-- ===================== COLUNA DIREITA: EXPLICACAO AO VIVO ===================== -->
+    <div class="panel" id="explain">
+      <div class="exp-title" id="expTitle">Painel de explicacao</div>
+      <div class="exp-what" id="expWhat">
+        Aperte um botao ou observe os eventos. Aqui aparece: <b>o que</b> aconteceu,
+        <b>o codigo</b> que rodou, e <b>por que</b> o WebRTC faz assim.
+      </div>
+      <div id="expBody"></div>
     </div>
   </div>
-
-  <div id="calleeFlow" style="display:none">
-    <div class="step">
-      <b>1.</b> Cole aqui a OFFER que o chamador te mandou:<br>
-      <textarea id="offerIn" placeholder="cole a offer aqui"></textarea>
-      <button id="genAnswer">Gerar Answer</button>
-    </div>
-    <div class="step">
-      <b>2.</b> Copie esta ANSWER e mande de volta pro chamador:<br>
-      <textarea id="answerOut" placeholder="a answer aparece aqui"></textarea>
-    </div>
-  </div>
-
-  <input id="msg" placeholder="conexao aberta? digite e Enter" disabled>
-  <div id="log">escolha seu papel acima...</div>
 
   <script>
+  (function () {
     const $ = id => document.getElementById(id);
-    const log = (...a) => { $('log').textContent += '\n' + a.join(' '); };
 
-    // STUN publico do Google: necessario pra descobrir o IP publico de cada lado.
-    const config = {
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    // ---------- helpers de log ----------
+    function log(msg, cls = 'log-info') {
+      const el = $('log');
+      const line = document.createElement('span');
+      line.className = cls;
+      line.textContent = '\n' + msg;
+      el.appendChild(line);
+      el.scrollTop = el.scrollHeight;
+    }
+
+    // ---------- painel de explicacao ----------
+    // cada "topico" tem: titulo, o-que, codigo (html ja escapado com spans), porque
+    const TOPICS = {
+      role: {
+        title: 'Voce escolheu um papel',
+        what: 'WebRTC e assimetrico: um lado cria a <b>offer</b>, o outro cria a <b>answer</b>. ' +
+              'So isso decide quem e "chamador". Depois que conecta, os dois sao iguais (full-duplex).',
+        code:
+`<span class="cmt">// nao ha API de "papel". A convencao e:</span>
+<span class="cmt">// chamador:</span> pc.<span class="fn">createOffer</span>() <span class="cmt">-> manda -></span> pc.<span class="fn">setRemoteDescription</span>(answer)
+<span class="cmt">// receptor:</span> pc.<span class="fn">setRemoteDescription</span>(offer) <span class="cmt">-></span> pc.<span class="fn">createAnswer</span>()`,
+        why: 'Alguem precisa falar primeiro. A offer diz "eis o que eu suporto e como me achar"; ' +
+             'a answer responde "combinado, e eis os meus dados". Sem essa ordem, os dois ' +
+             'mandariam propostas conflitantes (isso existe e chama-se <i>glare</i> / perfect negotiation).'
+      },
+      newPc: {
+        title: 'new RTCPeerConnection(config)',
+        what: 'Criou o objeto que representa a conexao com o outro peer. Ele ainda nao fala com ninguem — ' +
+              'so registrou <b>quais servidores STUN/TURN</b> usar para descobrir rotas.',
+        code:
+`<span class="kw">const</span> config = {
+  iceServers: [{ urls: <span class="str">'stun:stun.l.google.com:19302'</span> }]
+};
+<span class="kw">const</span> pc = <span class="kw">new</span> <span class="fn">RTCPeerConnection</span>(config);`,
+        why: 'O STUN e um servidor que responde "o IP:porta publico de onde essa mensagem veio e X". ' +
+             'Seu PC atras do roteador nao sabe seu proprio IP publico nem a porta que o NAT abriu — ' +
+             'so um servidor de fora consegue te contar. Sem isso, voce so teria o IP 192.168.x.x, ' +
+             'que nao serve para o celular no 4G.'
+      },
+      dataChannel: {
+        title: 'pc.createDataChannel("chat")',
+        what: 'O <b>chamador</b> cria o canal de dados ANTES da offer. Isso faz a offer incluir uma ' +
+              'secao <code>m=application</code> (SCTP sobre DTLS). O receptor recebe o mesmo canal ' +
+              'pelo evento <code>ondatachannel</code>.',
+        code:
+`<span class="cmt">// no CHAMADOR — antes de createOffer():</span>
+<span class="kw">const</span> channel = pc.<span class="fn">createDataChannel</span>(<span class="str">'chat'</span>);
+channel.<span class="fn">onopen</span>    = () => { <span class="cmt">/* pode enviar */</span> };
+channel.<span class="fn">onmessage</span> = e => <span class="fn">console.log</span>(e.data);
+
+<span class="cmt">// no RECEPTOR — nao cria, recebe:</span>
+pc.<span class="fn">ondatachannel</span> = e => {
+  <span class="kw">const</span> channel = e.channel;
+};`,
+        why: 'A offer/answer (SDP) precisa negociar o que vai passar pela conexao. Se voce criar o ' +
+             'DataChannel depois da offer, o SDP nao teria a midia dele e seria preciso re-negociar. ' +
+             'Criar antes = uma unica troca de SDP resolve tudo.'
+      },
+      createOffer: {
+        title: 'await pc.createOffer() + setLocalDescription()',
+        what: 'Gerou o <b>SDP</b>: um texto descrevendo codecs, DTLS fingerprint, ufrag/pwd do ICE e ' +
+              'placeholders de midia. <code>setLocalDescription</code> aplica isso e <b>dispara a coleta de candidatos</b>.',
+        code:
+`<span class="kw">const</span> offer = <span class="kw">await</span> pc.<span class="fn">createOffer</span>();
+<span class="kw">await</span> pc.<span class="fn">setLocalDescription</span>(offer);
+<span class="cmt">// a partir daqui pc.onicecandidate comeca a disparar</span>`,
+        why: 'O SDP e so descricao — nao contem ainda as rotas de rede. As rotas (candidatos ICE) ' +
+             'chegam de forma assincrona conforme o navegador pergunta ao SO e ao STUN. Por isso ' +
+             'esperamos o "gathering" terminar antes de exportar (estrategia <i>vanilla ICE</i>).'
+      },
+      iceHost: {
+        title: 'Candidato tipo HOST',
+        what: 'O navegador perguntou ao sistema operacional "quais IPs eu tenho?" e achou o da rede local ' +
+              '(ex.: <code>192.168.3.6</code>) ou um <code>.local</code> anonimizado (mDNS).',
+        code:
+`pc.<span class="fn">onicecandidate</span> = e => {
+  <span class="kw">if</span> (!e.candidate) <span class="kw">return</span>; <span class="cmt">// null = fim da coleta</span>
+  <span class="cmt">// candidate:... 1 udp 2113937151 192.168.3.6 51879 typ host</span>
+  <span class="kw">const</span> tipo = e.candidate.type; <span class="cmt">// "host"</span>
+};`,
+        why: 'So funciona se os dois peers estiverem na MESMA rede local. Entre PC-em-casa e ' +
+             'celular-no-4G, o candidato host e inutil — os dois estao em redes privadas diferentes ' +
+             'que nao se enxergam. Mesmo assim o navegador coleta, porque nao custa e as vezes serve.'
+      },
+      iceSrflx: {
+        title: 'Candidato tipo SRFLX (server-reflexive) — o mais importante aqui',
+        what: 'O navegador mandou um pacote ao STUN. O STUN respondeu "voce apareceu aqui como ' +
+              '<code>177.84.72.251:51879</code>". Esse e o par IP:porta que seu <b>NAT</b> abriu para essa conexao.',
+        code:
+`<span class="cmt">// candidate:... 1 udp 1677729535 177.84.72.251 51879</span>
+<span class="cmt">//   typ srflx raddr 192.168.3.6 rport 51879</span>
+<span class="kw">const</span> c = e.candidate;
+c.type;            <span class="cmt">// "srflx"</span>
+c.address;         <span class="cmt">// 177.84.72.251  (IP PUBLICO visto pelo STUN)</span>
+c.port;            <span class="cmt">// 51879          (porta que o NAT abriu)</span>
+c.relatedAddress;  <span class="cmt">// 192.168.3.6    (IP local por tras)</span>`,
+        why: 'Este e o coracao do NAT traversal. O celular vai tentar mandar pacotes para ' +
+             '177.84.72.251:51879. Quando chegam no seu roteador, ele lembra "abri essa porta para o ' +
+             'PC 192.168.3.6" e encaminha. Funciona porque VOCE mandou primeiro (ao STUN), o que ' +
+             'ensinou o NAT a deixar respostas entrarem por essa porta. E o "furo" no NAT.'
+      },
+      iceRelay: {
+        title: 'Candidato tipo RELAY (via TURN)',
+        what: 'So aparece se voce configurar um servidor TURN. E um endereco NO SERVIDOR TURN; tudo que ' +
+              'passa por ele e retransmitido para o outro peer.',
+        code:
+`iceServers: [
+  { urls: <span class="str">'stun:stun.l.google.com:19302'</span> },
+  { urls: <span class="str">'turn:seu-turn.com:3478'</span>,
+    username: <span class="str">'user'</span>, credential: <span class="str">'pass'</span> }
+]
+<span class="cmt">// candidate:... typ relay  -> address = IP do servidor TURN</span>`,
+        why: 'Alguns NATs (CGNAT de operadora movel, NAT simetrico) mudam a porta publica a cada ' +
+             'destino diferente. Ai o truque do srflx nao funciona: a porta que o STUN viu nao e a ' +
+             'mesma que o peer usaria. O TURN resolve porque os DOIS peers falam com um servidor de ' +
+             'IP fixo e publico — sempre alcancavel. Custa banda no servidor, por isso e ultimo recurso.'
+      },
+      gatheringDone: {
+        title: 'onicecandidate disparou com candidate = null',
+        what: 'Fim da coleta. <code>iceGatheringState</code> virou <code>"complete"</code>. Agora o SDP ' +
+              'local ja tem todos os candidatos embutidos e pode ser copiado inteiro.',
+        code:
+`<span class="kw">function</span> <span class="fn">waitForIceComplete</span>(pc) {
+  <span class="kw">return new</span> <span class="fn">Promise</span>(resolve => {
+    <span class="kw">if</span> (pc.iceGatheringState === <span class="str">'complete'</span>) <span class="kw">return</span> <span class="fn">resolve</span>();
+    pc.<span class="fn">addEventListener</span>(<span class="str">'icegatheringstatechange'</span>, () => {
+      <span class="kw">if</span> (pc.iceGatheringState === <span class="str">'complete'</span>) <span class="fn">resolve</span>();
+    });
+    <span class="fn">setTimeout</span>(resolve, <span class="str">4000</span>); <span class="cmt">// fallback</span>
+  });
+}`,
+        why: 'Duas estrategias: (1) <b>vanilla ICE</b> — espera tudo, exporta um SDP completo (bom para ' +
+             'copiar/colar). (2) <b>trickle ICE</b> — exporta o SDP na hora e vai mandando cada ' +
+             'candidato pelo signaling conforme chega (conecta mais rapido, mas exige canal de ' +
+             'signaling sempre aberto). Aqui usamos vanilla porque o "signaling" e voce no WhatsApp.'
+      },
+      setRemoteOffer: {
+        title: 'setRemoteDescription(offer) — no receptor',
+        what: 'O receptor recebeu o SDP do chamador (com os candidatos do chamador dentro) e o aplicou. ' +
+              'Agora sabe os codecs, o DTLS fingerprint e as rotas candidatas do outro lado.',
+        code:
+`<span class="kw">const</span> offer = <span class="fn">JSON.parse</span>(textoColado);
+<span class="kw">await</span> pc.<span class="fn">setRemoteDescription</span>(offer);
+<span class="cmt">// signalingState: stable -> have-remote-offer</span>`,
+        why: 'setRemoteDescription "carrega" o que o outro peer disse. Como aqui o SDP ja vem com os ' +
+             'candidatos embutidos (vanilla), o navegador ja pode comecar a testar conexao assim que ' +
+             'o receptor tambem gerar os seus. Em trickle, viriam depois via addIceCandidate().'
+      },
+      createAnswer: {
+        title: 'await pc.createAnswer() + setLocalDescription()',
+        what: 'O receptor gerou sua resposta: escolheu os codecs em comum, seu proprio DTLS fingerprint ' +
+              'e disparou a coleta dos SEUS candidatos ICE.',
+        code:
+`<span class="kw">const</span> answer = <span class="kw">await</span> pc.<span class="fn">createAnswer</span>();
+<span class="kw">await</span> pc.<span class="fn">setLocalDescription</span>(answer);
+<span class="cmt">// agora pc.onicecandidate dispara no RECEPTOR tambem</span>`,
+        why: 'A answer e a "interseccao" do que os dois suportam. Se o chamador oferece 3 codecs e o ' +
+             'receptor so tem 1, a answer fixa esse 1. Tambem e onde o receptor anuncia suas rotas ' +
+             'para o chamador poder tentar alcanca-lo.'
+      },
+      setRemoteAnswer: {
+        title: 'setRemoteDescription(answer) — no chamador',
+        what: 'O chamador recebeu a answer de volta e aplicou. <b>Agora os dois lados tem o SDP completo ' +
+              'do outro</b>, com todos os candidatos. A negociacao acabou; comeca o ICE.',
+        code:
+`<span class="kw">const</span> answer = <span class="fn">JSON.parse</span>(textoColado);
+<span class="kw">await</span> pc.<span class="fn">setRemoteDescription</span>(answer);
+<span class="cmt">// signalingState: have-local-offer -> stable</span>
+<span class="cmt">// iceConnectionState: new -> checking (comeca a testar pares)</span>`,
+        why: 'Este e o momento em que o "signaling" (voce copiando/colando) termina o trabalho. Dai ' +
+             'para frente nada mais passa pelo WhatsApp — os navegadores falam direto. O servidor de ' +
+             'signaling, num app real, poderia ate cair agora que a conexao ja aguenta sozinha.'
+      },
+      iceChecking: {
+        title: 'iceConnectionState: checking',
+        what: 'O ICE esta fazendo <b>connectivity checks</b>: para cada par (meu candidato, teu candidato) ' +
+              'ele manda um pacote STUN Binding Request e espera resposta. Testa todos em paralelo.',
+        code:
+`pc.<span class="fn">oniceconnectionstatechange</span> = () => {
+  <span class="cmt">// new -> checking -> connected -> completed</span>
+  <span class="cmt">//              \\-> failed  (nenhum par funcionou)</span>
+  <span class="fn">console.log</span>(pc.iceConnectionState);
+};`,
+        why: 'Nao da para saber de antemao qual rota funciona (depende do tipo de cada NAT). Entao o ICE ' +
+             'testa tudo: host-host, srflx-srflx, srflx-host, relay-*... Ordena por prioridade ' +
+             '(local > reflexive > relay) e usa o primeiro par que responder. Isso e o ' +
+             '"ICE agent" trabalhando.'
+      },
+      iceConnected: {
+        title: 'iceConnectionState: connected  ✅',
+        what: 'Um par de candidatos passou no teste. Existe um caminho UDP direto entre os dois ' +
+              'navegadores. O DTLS handshake acontece por cima desse caminho para cifrar tudo.',
+        code:
+`<span class="cmt">// o par vencedor voce ve em chrome://webrtc-internals</span>
+<span class="cmt">// ou via getStats():</span>
+<span class="kw">const</span> stats = <span class="kw">await</span> pc.<span class="fn">getStats</span>();
+stats.<span class="fn">forEach</span>(r => {
+  <span class="kw">if</span> (r.type === <span class="str">'candidate-pair'</span> && r.state === <span class="str">'succeeded'</span>)
+    <span class="fn">console.log</span>(r.localCandidateId, r.remoteCandidateId);
+});`,
+        why: 'connected = achou caminho e ele funciona agora. completed = terminou de checar TODOS os ' +
+             'pares e nao vai mais tentar outros. Pode voltar para checking se a rede mudar (ex.: ' +
+             'celular troca de torre) — isso e o ICE restart.'
+      },
+      channelOpen: {
+        title: 'channel.onopen — CANAL P2P ABERTO',
+        what: 'O SCTP sobre DTLS terminou de subir. Agora <code>channel.send()</code> entrega bytes ' +
+              'direto no outro navegador, sem passar por servidor nenhum.',
+        code:
+`channel.<span class="fn">onopen</span> = () => {
+  input.disabled = <span class="kw">false</span>;
+};
+<span class="cmt">// enviar:</span>
+channel.<span class="fn">send</span>(<span class="str">'Oi?'</span>);
+<span class="cmt">// receber (no outro lado):</span>
+channel.<span class="fn">onmessage</span> = e => <span class="fn">console.log</span>(e.data); <span class="cmt">// "Oi?"</span>`,
+        why: 'DataChannel roda sobre SCTP, que voce configura como confiavel+ordenado (default, tipo TCP) ' +
+             'ou nao-confiavel (tipo UDP, bom para jogos). Tudo cifrado com DTLS — nem seu provedor ' +
+             've o conteudo. Latencia tipica PC<->4G: 30-80ms, contra 2x isso passando por servidor.'
+      },
+      msgSent: {
+        title: 'channel.send(texto)',
+        what: 'Voce mandou uma mensagem pelo caminho P2P. Ela saiu da sua placa de rede, passou pelo seu ' +
+              'roteador (que ja tem o "furo" aberto), atravessou a internet e chegou no 4G do celular.',
+        code:
+`$('msg').<span class="fn">addEventListener</span>(<span class="str">'keydown'</span>, e => {
+  <span class="kw">if</span> (e.key === <span class="str">'Enter'</span> && e.target.value) {
+    channel.<span class="fn">send</span>(e.target.value);
+    e.target.value = <span class="str">''</span>;
+  }
+});`,
+        why: 'Zero servidores no meio. Se voce derrubar sua conexao de internet o STUN/signaling nao ' +
+             'muda nada — a rota ja esta estabelecida ponta a ponta. So um TURN (se estivesse em uso) ' +
+             'seria um intermediario real.'
+      },
+      msgRecv: {
+        title: 'channel.onmessage',
+        what: 'Chegou um pacote do outro peer pelo caminho ICE estabelecido. O navegador decifrou o DTLS ' +
+              'e te entregou o texto.',
+        code:
+`channel.<span class="fn">onmessage</span> = e => {
+  <span class="fn">log</span>(<span class="str">'recebeu: '</span> + e.data);
+};`,
+        why: 'A simetria: depois que conecta, nao existe mais "chamador" e "receptor". Os dois lados ' +
+             'enviam e recebem pelo mesmo canal, full-duplex.'
+      },
+      iceFailed: {
+        title: 'iceConnectionState: failed  ❌',
+        what: 'Nenhum par de candidatos funcionou. Normalmente: os dois lados atras de CGNAT / NAT ' +
+              'simetrico, e sem TURN configurado nao ha rota possivel.',
+        code:
+`<span class="kw">if</span> (pc.iceConnectionState === <span class="str">'failed'</span>) {
+  <span class="cmt">// unica saida: adicionar um servidor TURN em iceServers</span>
+  <span class="cmt">// e recriar a conexao</span>
+}`,
+        why: 'NAT simetrico: o roteador usa uma porta publica DIFERENTE para cada destino. A porta que o ' +
+             'STUN viu (destino = STUN) nao e a que valeria para o peer (destino = peer). O srflx fica ' +
+             'inutil. Operadoras moveis fazem muito isso. Solucao: TURN, que da um ponto de encontro ' +
+             'fixo. Cerca de 10-20% das conexoes reais no mundo precisam de TURN.'
+      }
     };
 
+    let currentTopic = null;
+    function explain(key) {
+      const t = TOPICS[key];
+      if (!t) return;
+      currentTopic = key;
+      $('expTitle').textContent = t.title;
+      $('expWhat').innerHTML = t.what;
+      $('expBody').innerHTML =
+        '<pre class="code">' + t.code + '</pre>' +
+        '<div class="exp-why"><b>Por que e assim:</b> ' + t.why + '</div>';
+    }
+
+    // ---------- state tracks ----------
+    function markTrack(trackId, value) {
+      document.querySelectorAll('#' + trackId + ' span').forEach(s => {
+        s.classList.toggle('on', s.dataset.s === value);
+      });
+    }
+
+    // ---------- candidatos ----------
+    const CAND_DESC = {
+      host:  'IP da sua rede local. So serve entre peers na MESMA rede.',
+      srflx: 'Seu IP:porta publico, descoberto via STUN. E o que faz o P2P entre NATs.',
+      relay: 'Endereco no servidor TURN. Tudo passa retransmitido por ele.',
+      prflx: 'Descoberto durante os testes de conectividade (peer-reflexive).'
+    };
+    function addCandidateRow(c) {
+      const tb = $('candTable').querySelector('tbody');
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td><span class="pill ' + c.type + '">' + c.type + '</span></td>' +
+        '<td>' + (c.address || '?') + ':' + (c.port || '?') + '</td>' +
+        '<td>' + (c.protocol || 'udp') + '</td>' +
+        '<td class="small">' + (CAND_DESC[c.type] || '') + '</td>';
+      tb.appendChild(tr);
+    }
+
+    // ===================== WEBRTC =====================
+    const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
     let pc, channel;
 
     function wireChannel(ch) {
       channel = ch;
       ch.onopen = () => {
-        log('>>> CANAL P2P ABERTO! <<<');
+        log('>>> CANAL P2P ABERTO! <<<', 'log-ok');
         $('msg').disabled = false;
+        explain('channelOpen');
       };
-      ch.onclose = () => log('canal fechado.');
-      ch.onmessage = e => log('recebeu:', e.data);
+      ch.onclose = () => log('canal fechado.', 'log-warn');
+      ch.onmessage = e => {
+        log('recebeu: ' + e.data, 'log-ok');
+        explain('msgRecv');
+      };
     }
+
+    let sawSrflx = false, sawRelay = false, sawHost = false;
 
     function setupPc() {
       pc = new RTCPeerConnection(config);
-      pc.oniceconnectionstatechange = () => {
-        log('ICE state:', pc.iceConnectionState);
-        if (pc.iceConnectionState === 'failed')
-          log('FALHOU. Provavelmente CGNAT dos dois lados — precisaria de TURN.');
+      explain('newPc');
+      markTrack('track-sig', 'stable');
+      markTrack('track-ice', 'new');
+
+      pc.onsignalingstatechange = () => {
+        log('signalingState: ' + pc.signalingState, 'log-ev');
+        const map = { 'stable': 'stable', 'have-local-offer': 'have-local-offer',
+                      'have-remote-offer': 'have-remote-offer' };
+        markTrack('track-sig', map[pc.signalingState] || 'stable');
       };
+
+      pc.oniceconnectionstatechange = () => {
+        const s = pc.iceConnectionState;
+        log('iceConnectionState: ' + s, s === 'failed' ? 'log-err' : 'log-ev');
+        markTrack('track-ice', s);
+        if (s === 'checking') explain('iceChecking');
+        if (s === 'connected' || s === 'completed') explain('iceConnected');
+        if (s === 'failed') explain('iceFailed');
+      };
+
       pc.onicecandidate = e => {
         if (e.candidate) {
-          // loga o tipo de candidato: host / srflx (via STUN) / relay (via TURN)
-          const t = e.candidate.candidate.split(' ')[7];
-          log('candidato:', t);
+          const c = e.candidate;
+          log('candidato [' + c.type + '] ' + (c.address || '') + ':' + (c.port || ''), 'log-info');
+          addCandidateRow(c);
+          if (c.type === 'host' && !sawHost) { sawHost = true; explain('iceHost'); }
+          if (c.type === 'srflx' && !sawSrflx) { sawSrflx = true; explain('iceSrflx'); }
+          if (c.type === 'relay' && !sawRelay) { sawRelay = true; explain('iceRelay'); }
         } else {
-          log('coleta de candidatos terminou.');
+          log('coleta de candidatos terminou (candidate = null)', 'log-info');
+          explain('gatheringDone');
         }
       };
     }
 
-    // --- CHAMADOR ---
-    $('beCaller').onclick = () => {
-      $('callerFlow').style.display = 'block';
-      $('calleeFlow').style.display = 'none';
-      $('log').textContent = 'papel: CHAMADOR';
-    };
-
-    $('genOffer').onclick = async () => {
-      setupPc();
-      wireChannel(pc.createDataChannel('chat'));
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      log('offer criada, aguardando ICE gathering completo...');
-      // Espera juntar todos os candidatos ANTES de exportar o SDP (vanilla ICE).
-      await waitForIceComplete(pc);
-      $('offerOut').value = JSON.stringify(pc.localDescription);
-      log('offer pronta! copie o texto do campo acima.');
-    };
-
-    $('acceptAnswer').onclick = async () => {
-      const answer = JSON.parse($('answerIn').value);
-      await pc.setRemoteDescription(answer);
-      log('answer aceita. ICE deve conectar em instantes...');
-    };
-
-    // --- RECEPTOR ---
-    $('beCallee').onclick = () => {
-      $('calleeFlow').style.display = 'block';
-      $('callerFlow').style.display = 'none';
-      $('log').textContent = 'papel: RECEPTOR';
-    };
-
-    $('genAnswer').onclick = async () => {
-      setupPc();
-      pc.ondatachannel = e => wireChannel(e.channel);
-      const offer = JSON.parse($('offerIn').value);
-      await pc.setRemoteDescription(offer);
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      log('answer criada, aguardando ICE gathering...');
-      await waitForIceComplete(pc);
-      $('answerOut').value = JSON.stringify(pc.localDescription);
-      log('answer pronta! copie e mande de volta.');
-    };
-
-    // Utilitario: resolve quando o ICE gathering acaba (ou depois de 4s).
     function waitForIceComplete(pc) {
       return new Promise(resolve => {
         if (pc.iceGatheringState === 'complete') return resolve();
@@ -148,17 +543,91 @@
           }
         };
         pc.addEventListener('icegatheringstatechange', check);
-        setTimeout(resolve, 4000); // fallback: nem sempre dispara 'complete'
+        setTimeout(resolve, 4000);
       });
     }
 
+    // ---------- papeis ----------
+    $('beCaller').onclick = () => {
+      $('callerFlow').style.display = 'block';
+      $('calleeFlow').style.display = 'none';
+      $('roleHint').textContent = 'Voce e o CHAMADOR: gere a offer, mande, cole a answer de volta.';
+      explain('role');
+    };
+    $('beCallee').onclick = () => {
+      $('calleeFlow').style.display = 'block';
+      $('callerFlow').style.display = 'none';
+      $('roleHint').textContent = 'Voce e o RECEPTOR: cole a offer, gere a answer, mande de volta.';
+      explain('role');
+    };
+
+    // ---------- chamador ----------
+    $('genOffer').onclick = async () => {
+      setupPc();
+      $('s-caller-1').classList.add('active');
+      wireChannel(pc.createDataChannel('chat'));
+      explain('dataChannel');
+      await new Promise(r => setTimeout(r, 400)); // deixa ler a explicacao do datachannel
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      explain('createOffer');
+      log('offer criada, coletando rotas...', 'log-info');
+      await waitForIceComplete(pc);
+      $('offerOut').value = JSON.stringify(pc.localDescription);
+      $('s-caller-1').classList.remove('active');
+      $('s-caller-1').classList.add('done');
+      $('s-caller-2').classList.add('active');
+      log('offer PRONTA — copie e envie ao receptor.', 'log-ok');
+    };
+
+    $('acceptAnswer').onclick = async () => {
+      try {
+        const answer = JSON.parse($('answerIn').value.trim());
+        await pc.setRemoteDescription(answer);
+        explain('setRemoteAnswer');
+        $('s-caller-2').classList.remove('active');
+        $('s-caller-2').classList.add('done');
+        log('answer aceita. ICE conectando...', 'log-ok');
+      } catch (err) {
+        log('ERRO ao ler answer: ' + err.message, 'log-err');
+      }
+    };
+
+    // ---------- receptor ----------
+    $('genAnswer').onclick = async () => {
+      try {
+        setupPc();
+        $('s-callee-1').classList.add('active');
+        pc.ondatachannel = e => { explain('dataChannel'); wireChannel(e.channel); };
+        const offer = JSON.parse($('offerIn').value.trim());
+        await pc.setRemoteDescription(offer);
+        explain('setRemoteOffer');
+        await new Promise(r => setTimeout(r, 400));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        explain('createAnswer');
+        log('answer criada, coletando rotas...', 'log-info');
+        await waitForIceComplete(pc);
+        $('answerOut').value = JSON.stringify(pc.localDescription);
+        $('s-callee-1').classList.remove('active');
+        $('s-callee-1').classList.add('done');
+        $('s-callee-2').classList.add('active');
+        log('answer PRONTA — copie e envie de volta ao chamador.', 'log-ok');
+      } catch (err) {
+        log('ERRO ao ler offer: ' + err.message, 'log-err');
+      }
+    };
+
+    // ---------- chat ----------
     $('msg').addEventListener('keydown', e => {
-      if (e.key === 'Enter' && e.target.value && channel) {
+      if (e.key === 'Enter' && e.target.value && channel && channel.readyState === 'open') {
         channel.send(e.target.value);
-        log('enviou:', e.target.value);
+        log('enviou: ' + e.target.value, 'log-ok');
+        explain('msgSent');
         e.target.value = '';
       }
     });
+  })();
   </script>
 </body>
 </html>

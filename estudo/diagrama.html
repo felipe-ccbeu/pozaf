@@ -1,0 +1,829 @@
+<title>Como o P2P atravessa o NAT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap">
+<style>
+  :root {
+    --ground: #f7f4ef;
+    --surface: #ffffff;
+    --raised: #f0ebe3;
+    --ink: #1c1917;
+    --muted: #6b635b;
+    --hairline: #ddd5c9;
+    --wire: #b8ad9d;
+    --host: #1f6feb;
+    --srflx: #1a7f37;
+    --srflx-bg: #dcf5e3;
+    --relay: #9a6700;
+    --relay-bg: #f7eccf;
+    --danger: #cf222e;
+    --accent: var(--srflx);
+    --measure: 42rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #12100f;
+      --surface: #1c1917;
+      --raised: #262220;
+      --ink: #e7e2dc;
+      --muted: #9a938c;
+      --hairline: #322d2a;
+      --wire: #4b4340;
+      --host: #6ea8fe;
+      --srflx: #5bd67f;
+      --srflx-bg: #14311f;
+      --relay: #e0a23a;
+      --relay-bg: #34290f;
+      --danger: #ff7b72;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #12100f;
+    --surface: #1c1917;
+    --raised: #262220;
+    --ink: #e7e2dc;
+    --muted: #9a938c;
+    --hairline: #322d2a;
+    --wire: #4b4340;
+    --host: #6ea8fe;
+    --srflx: #5bd67f;
+    --srflx-bg: #14311f;
+    --relay: #e0a23a;
+    --relay-bg: #34290f;
+    --danger: #ff7b72;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Newsreader", Georgia, serif;
+    font-size: 1.0625rem;
+    line-height: 1.65;
+    margin: 0;
+    padding: 0 1.25rem 6rem;
+  }
+  .wrap { max-width: var(--measure); margin: 0 auto; }
+  .bleed { max-width: 60rem; margin-left: auto; margin-right: auto; }
+
+  header {
+    max-width: 60rem; margin: 0 auto;
+    padding: 4.5rem 0 2.5rem;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .kicker {
+    font-family: "Space Mono", monospace;
+    font-size: .8rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 1rem;
+  }
+  h1 {
+    font-family: "Space Mono", monospace;
+    font-weight: 700;
+    font-size: clamp(1.9rem, 5vw, 3rem);
+    line-height: 1.1;
+    letter-spacing: -.02em;
+    text-wrap: balance;
+    margin: 0 0 1.25rem;
+  }
+  .standfirst {
+    font-size: 1.25rem;
+    color: var(--muted);
+    max-width: 34rem;
+    margin: 0;
+  }
+
+  h2 {
+    font-family: "Space Mono", monospace;
+    font-weight: 700;
+    font-size: 1.5rem;
+    letter-spacing: -.01em;
+    margin: 4rem 0 .5rem;
+    padding-top: 1rem;
+    text-wrap: balance;
+  }
+  h2 .num {
+    color: var(--accent);
+    margin-right: .6rem;
+  }
+  h3 {
+    font-family: "Space Mono", monospace;
+    font-weight: 700;
+    font-size: 1.05rem;
+    margin: 2.5rem 0 .4rem;
+  }
+  p { margin: 0 0 1.15rem; }
+  a { color: var(--accent); text-underline-offset: 2px; }
+
+  strong { font-weight: 600; }
+  em { font-style: italic; }
+
+  code, .mono {
+    font-family: "Space Mono", monospace;
+    font-size: .92em;
+  }
+  p code, li code {
+    background: var(--raised);
+    padding: .08em .35em;
+    border-radius: 3px;
+    font-size: .86em;
+  }
+
+  .ip {
+    font-family: "Space Mono", monospace;
+    font-weight: 700;
+    font-size: .86em;
+    padding: .1em .4em;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .ip.host  { background: color-mix(in srgb, var(--host) 16%, transparent); color: var(--host); }
+  .ip.srflx { background: var(--srflx-bg); color: var(--srflx); }
+  .ip.relay { background: var(--relay-bg); color: var(--relay); }
+
+  figure {
+    margin: 2rem 0;
+    padding: 0;
+  }
+  .figframe {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 1.75rem 1.5rem 1rem;
+    overflow-x: auto;
+  }
+  figure svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 0 auto;
+    color: var(--wire);
+  }
+  figcaption {
+    font-family: "Newsreader", Georgia, serif;
+    font-size: .95rem;
+    color: var(--muted);
+    margin-top: 1rem;
+    padding: 0 .25rem;
+    max-width: 46rem;
+  }
+  figcaption b { color: var(--ink); font-weight: 600; }
+
+  svg text { font-family: "Space Mono", monospace; }
+  .s-fill-ground { fill: var(--surface); }
+  .s-fill-raised { fill: var(--raised); }
+  .s-ink   { fill: var(--ink); }
+  .s-muted { fill: var(--muted); }
+  .s-stroke-wire { stroke: var(--wire); }
+  .s-host  { fill: var(--host); }
+  .s-host-s { stroke: var(--host); }
+  .s-srflx { fill: var(--srflx); }
+  .s-srflx-s { stroke: var(--srflx); }
+  .s-relay { fill: var(--relay); }
+  .s-relay-s { stroke: var(--relay); }
+  .s-danger-s { stroke: var(--danger); }
+  .s-danger { fill: var(--danger); }
+
+  .callout {
+    background: var(--raised);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    padding: 1rem 1.25rem;
+    margin: 1.75rem 0;
+    font-size: 1rem;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout .label {
+    font-family: "Space Mono", monospace;
+    font-size: .72rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    display: block;
+    margin-bottom: .4rem;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: "Space Mono", monospace;
+    font-size: .82rem;
+    margin: 1.75rem 0;
+  }
+  th, td {
+    border: 1px solid var(--hairline);
+    padding: .55rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: var(--raised);
+    font-weight: 700;
+    letter-spacing: .03em;
+  }
+  td .tag {
+    display: inline-block;
+    padding: .05em .45em;
+    border-radius: 3px;
+    font-weight: 700;
+  }
+  .tag.host  { background: color-mix(in srgb, var(--host) 16%, transparent); color: var(--host); }
+  .tag.srflx { background: var(--srflx-bg); color: var(--srflx); }
+  .tag.relay { background: var(--relay-bg); color: var(--relay); }
+
+  pre.log {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    padding: 1rem 1.15rem;
+    overflow-x: auto;
+    font-family: "Space Mono", monospace;
+    font-size: .8rem;
+    line-height: 1.7;
+    color: var(--muted);
+    margin: 1.5rem 0;
+  }
+  pre.log .g { color: var(--srflx); }
+  pre.log .b { color: var(--host); }
+  pre.log .a { color: var(--relay); }
+  pre.log .i { color: var(--ink); }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    font-family: "Space Mono", monospace;
+    font-size: .78rem;
+    color: var(--muted);
+    margin: 1rem .25rem 0;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: .45rem; }
+  .swatch { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+  .swatch.dash { height: 0; border-top: 2px dashed currentColor; width: 16px; }
+
+  hr {
+    border: 0;
+    border-top: 1px solid var(--hairline);
+    margin: 4rem auto;
+    max-width: 60rem;
+  }
+  .toc {
+    font-family: "Space Mono", monospace;
+    font-size: .84rem;
+    line-height: 2;
+    margin: 2rem 0 0;
+    padding: 0;
+    list-style: none;
+    color: var(--muted);
+  }
+  .toc a { color: var(--ink); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+  .toc .n { color: var(--accent); margin-right: .75rem; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .fade { animation: fade .6s ease both; }
+    @keyframes fade { from { opacity: 0; transform: translateY(8px); } }
+  }
+</style>
+
+<header class="fade">
+  <p class="kicker">Estudo &middot; WebRTC / P2P &middot; 31 ago 2026</p>
+  <h1>Como o P2P atravessa o NAT</h1>
+  <p class="standfirst">
+    O caminho real de um pacote entre o seu PC no Wi&#8209;Fi de casa e o seu
+    celular no 4G &mdash; e por que ele precisa de um servidor s&oacute; para
+    come&ccedil;ar.
+  </p>
+  <ol class="toc">
+    <li><span class="n">01</span><a href="#problema">O problema: ningu&eacute;m tem endere&ccedil;o</a></li>
+    <li><span class="n">02</span><a href="#nat">O que o NAT faz com o seu pacote</a></li>
+    <li><span class="n">03</span><a href="#stun">STUN: descobrir o pr&oacute;prio endere&ccedil;o p&uacute;blico</a></li>
+    <li><span class="n">04</span><a href="#fluxo">Os 6 passos da conex&atilde;o</a></li>
+    <li><span class="n">05</span><a href="#candidatos">Os tr&ecirc;s tipos de candidato ICE</a></li>
+    <li><span class="n">06</span><a href="#simetrico">Quando falha: NAT sim&eacute;trico e TURN</a></li>
+    <li><span class="n">07</span><a href="#seulog">Lendo o seu pr&oacute;prio log</a></li>
+  </ol>
+</header>
+
+<main class="wrap">
+
+  <h2 id="problema"><span class="num">01</span>O problema: ningu&eacute;m tem endere&ccedil;o</h2>
+
+  <p>
+    Na internet, para mandar um pacote voc&ecirc; precisa do endere&ccedil;o do
+    destino: um par <code>IP:porta</code> alcan&ccedil;&aacute;vel. O seu servidor
+    web tem um. O seu PC em casa <strong>n&atilde;o</strong>.
+  </p>
+  <p>
+    O seu PC tem um IP privado &mdash; no seu caso
+    <span class="ip host">192.168.3.6</span> &mdash; que s&oacute; existe dentro da
+    sua rede. Bilh&otilde;es de casas usam exatamente essa mesma faixa
+    (<code>192.168.x.x</code>, <code>10.x.x.x</code>). Esse endere&ccedil;o
+    n&atilde;o &eacute; roteável pela internet: se o celular mandasse um pacote
+    para <span class="ip host">192.168.3.6</span>, ele bateria no roteador da
+    operadora e seria descartado, porque a operadora tamb&eacute;m tem um
+    <span class="ip host">192.168.3.6</span> em outro cliente qualquer.
+  </p>
+  <p>
+    O que existe de p&uacute;blico &eacute; <strong>um</strong> IP no seu
+    roteador, compartilhado por todos os aparelhos da casa. E o roteador n&atilde;o
+    aceita conex&otilde;es de fora por padr&atilde;o. Esse &eacute; o buraco que o
+    WebRTC precisa furar.
+  </p>
+
+  <figure>
+    <div class="figframe">
+      <svg viewBox="0 0 900 340" role="img" aria-label="O PC em casa e o celular no 4G, cada um atras do seu proprio NAT, sem rota direta entre os IPs privados">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+          </marker>
+        </defs>
+
+        <!-- casa -->
+        <rect x="20" y="40" width="250" height="200" rx="10" class="s-fill-ground s-stroke-wire" stroke-width="1.5"/>
+        <text x="40" y="66" font-size="12" font-weight="700" class="s-muted">REDE DE CASA (Wi-Fi)</text>
+        <rect x="45" y="90" width="150" height="52" rx="6" class="s-fill-raised s-stroke-wire" stroke-width="1.5"/>
+        <text x="120" y="112" font-size="12" text-anchor="middle" class="s-ink" font-weight="700">Seu PC</text>
+        <text x="120" y="130" font-size="11" text-anchor="middle" class="s-host">192.168.3.6</text>
+        <rect x="45" y="170" width="205" height="44" rx="6" class="s-fill-raised s-stroke-wire" stroke-width="1.5"/>
+        <text x="147" y="192" font-size="12" text-anchor="middle" class="s-ink" font-weight="700">Roteador / NAT</text>
+        <text x="147" y="207" font-size="10" text-anchor="middle" class="s-muted">LAN 192.168.3.1</text>
+        <line x1="120" y1="142" x2="120" y2="170" class="s-stroke-wire" stroke-width="1.5"/>
+
+        <!-- internet -->
+        <ellipse cx="450" cy="140" rx="78" ry="48" class="s-fill-raised s-stroke-wire" stroke-width="1.5"/>
+        <text x="450" y="145" font-size="13" text-anchor="middle" class="s-muted" font-weight="700">INTERNET</text>
+
+        <!-- 4g -->
+        <rect x="630" y="40" width="250" height="200" rx="10" class="s-fill-ground s-stroke-wire" stroke-width="1.5"/>
+        <text x="650" y="66" font-size="12" font-weight="700" class="s-muted">OPERADORA (4G)</text>
+        <rect x="705" y="90" width="150" height="52" rx="6" class="s-fill-raised s-stroke-wire" stroke-width="1.5"/>
+        <text x="780" y="112" font-size="12" text-anchor="middle" class="s-ink" font-weight="700">Seu celular</text>
+        <text x="780" y="130" font-size="11" text-anchor="middle" class="s-host">10.53.201.8</text>
+        <rect x="650" y="170" width="205" height="44" rx="6" class="s-fill-raised s-stroke-wire" stroke-width="1.5"/>
+        <text x="752" y="192" font-size="12" text-anchor="middle" class="s-ink" font-weight="700">CGNAT da operadora</text>
+        <text x="752" y="207" font-size="10" text-anchor="middle" class="s-muted">compartilhado c/ milhares</text>
+        <line x1="780" y1="142" x2="780" y2="170" class="s-stroke-wire" stroke-width="1.5"/>
+
+        <!-- conexoes ao core -->
+        <line x1="250" y1="192" x2="378" y2="150" class="s-stroke-wire" stroke-width="1.5"/>
+        <line x1="650" y1="192" x2="522" y2="150" class="s-stroke-wire" stroke-width="1.5"/>
+
+        <!-- tentativa direta falha -->
+        <path d="M120 90 C 120 20, 780 20, 780 90" fill="none" class="s-danger-s" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#ar)"/>
+        <text x="450" y="20" font-size="12" text-anchor="middle" class="s-danger" font-weight="700">pacote p/ 192.168.3.6 &rarr; descartado</text>
+        <line x1="440" y1="34" x2="460" y2="14" class="s-danger-s" stroke-width="2.5"/>
+        <line x1="460" y1="34" x2="440" y2="14" class="s-danger-s" stroke-width="2.5"/>
+      </svg>
+    </div>
+    <figcaption>
+      Os dois lados t&ecirc;m IP privado. Um pacote endere&ccedil;ado ao IP
+      privado do outro <b>nunca chega</b> &mdash; ele n&atilde;o &eacute;
+      roteável e colide com milhares de m&aacute;quinas com o mesmo n&uacute;mero.
+      A &uacute;nica coisa p&uacute;blica &eacute; o IP de cada NAT.
+    </figcaption>
+  </figure>
+
+  <h2 id="nat"><span class="num">02</span>O que o NAT faz com o seu pacote</h2>
+
+  <p>
+    NAT &eacute; <em>Network Address Translation</em>. Quando o seu PC abre uma
+    conex&atilde;o para fora, o roteador <strong>reescreve o endere&ccedil;o de
+    origem</strong> do pacote: troca <span class="ip host">192.168.3.6:51879</span>
+    pelo IP p&uacute;blico dele mais uma porta que ele escolhe, digamos
+    <span class="ip srflx">177.84.72.251:51879</span>. E anota numa tabela interna:
+    &ldquo;o que voltar para a porta 51879, mando para o PC 192.168.3.6&rdquo;.
+  </p>
+  <p>
+    Essa entrada na tabela &eacute; o <strong>&ldquo;furo&rdquo;</strong>. Ela s&oacute;
+    &eacute; criada porque <em>voc&ecirc; mandou primeiro</em>. Enquanto ela existir,
+    respostas que chegarem naquela porta p&uacute;blica entram. Pacotes n&atilde;o
+    solicitados que chegam numa porta sem entrada s&atilde;o descartados &mdash;
+    &eacute; isso que te &ldquo;protege&rdquo; e ao mesmo tempo atrapalha o P2P.
+  </p>
+
+  <figure>
+    <div class="figframe">
+      <svg viewBox="0 0 900 300" role="img" aria-label="O NAT reescreve o endereco de origem do pacote de saida e cria uma entrada na tabela que permite a resposta voltar">
+        <defs>
+          <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+          </marker>
+        </defs>
+
+        <rect x="30" y="60" width="130" height="60" rx="6" class="s-fill-raised s-stroke-wire" stroke-width="1.5"/>
+        <text x="95" y="85" font-size="12" text-anchor="middle" class="s-ink" font-weight="700">Seu PC</text>
+        <text x="95" y="103" font-size="10" text-anchor="middle" class="s-host">192.168.3.6</text>
+
+        <rect x="360" y="40" width="180" height="150" rx="8" class="s-fill-ground s-stroke-wire" stroke-width="1.5"/>
+        <text x="450" y="62" font-size="12" text-anchor="middle" class="s-muted" font-weight="700">NAT</text>
+        <rect x="378" y="76" width="144" height="98" rx="5" class="s-fill-raised s-stroke-wire" stroke-width="1.2"/>
+        <text x="450" y="94" font-size="9.5" text-anchor="middle" class="s-muted">tabela de tradu&ccedil;&atilde;o</text>
+        <line x1="386" y1="102" x2="514" y2="102" class="s-stroke-wire" stroke-width="1"/>
+        <text x="450" y="120" font-size="9" text-anchor="middle" class="s-host">192.168.3.6:51879</text>
+        <text x="450" y="134" font-size="10" text-anchor="middle" class="s-muted">&#8645;</text>
+        <text x="450" y="150" font-size="9" text-anchor="middle" class="s-srflx">177.84.72.251:51879</text>
+        <text x="450" y="167" font-size="8.5" text-anchor="middle" class="s-muted">peer: STUN 74.125.x.x</text>
+
+        <rect x="740" y="60" width="130" height="60" rx="6" class="s-fill-raised s-stroke-wire" stroke-width="1.5"/>
+        <text x="805" y="85" font-size="12" text-anchor="middle" class="s-ink" font-weight="700">Servidor</text>
+        <text x="805" y="103" font-size="10" text-anchor="middle" class="s-muted">na internet</text>
+
+        <!-- saida -->
+        <line x1="160" y1="80" x2="358" y2="80" class="s-srflx-s" stroke-width="2" marker-end="url(#ar2)"/>
+        <text x="255" y="72" font-size="10" text-anchor="middle" class="s-host">de: 192.168.3.6:51879</text>
+        <line x1="542" y1="80" x2="738" y2="80" class="s-srflx-s" stroke-width="2" marker-end="url(#ar2)"/>
+        <text x="640" y="72" font-size="10" text-anchor="middle" class="s-srflx">de: 177.84.72.251:51879</text>
+
+        <!-- volta -->
+        <line x1="738" y1="150" x2="542" y2="150" class="s-stroke-wire" stroke-width="2" marker-end="url(#ar2)"/>
+        <text x="640" y="168" font-size="10" text-anchor="middle" class="s-srflx">p/ 177.84.72.251:51879</text>
+        <line x1="358" y1="150" x2="160" y2="150" class="s-stroke-wire" stroke-width="2" marker-end="url(#ar2)"/>
+        <text x="255" y="168" font-size="10" text-anchor="middle" class="s-host">p/ 192.168.3.6:51879</text>
+      </svg>
+    </div>
+    <figcaption>
+      Sa&iacute;da (linhas verdes): o NAT reescreve a origem e grava a entrada.
+      Volta (linhas cinza): qualquer pacote que chegue em
+      <span class="ip srflx">177.84.72.251:51879</span> casa com a entrada e
+      &eacute; reencaminhado ao PC. <b>Sem a entrada, n&atilde;o h&aacute;
+      volta.</b>
+    </figcaption>
+  </figure>
+
+  <h2 id="stun"><span class="num">03</span>STUN: descobrir o pr&oacute;prio endere&ccedil;o p&uacute;blico</h2>
+
+  <p>
+    Aqui est&aacute; o detalhe elegante. O seu PC <strong>n&atilde;o sabe</strong>
+    qual IP p&uacute;blico e qual porta o NAT vai usar &mdash; essa decis&atilde;o
+    &eacute; do roteador, e ele n&atilde;o avisa ningu&eacute;m. A &uacute;nica
+    forma de descobrir &eacute; perguntar a algu&eacute;m <em>de fora</em>:
+    &ldquo;de que endere&ccedil;o esse meu pacote parece ter vindo?&rdquo;
+  </p>
+  <p>
+    Isso &eacute; o <strong>STUN</strong> (<em>Session Traversal Utilities for
+    NAT</em>). Voc&ecirc; manda um pacote UDP curto para um servidor STUN
+    p&uacute;blico &mdash; no c&oacute;digo,
+    <code>stun:stun.l.google.com:19302</code>. Ele responde com um &uacute;nico
+    dado &uacute;til: o par <code>IP:porta</code> de onde <em>ele</em> viu o seu
+    pacote chegar. Esse &eacute; o seu endere&ccedil;o
+    <strong>server&#8209;reflexive</strong> &mdash; o <code>srflx</code> que
+    apareceu no seu log.
+  </p>
+
+  <figure>
+    <div class="figframe">
+      <svg viewBox="0 0 900 260" role="img" aria-label="O PC pergunta ao servidor STUN qual e o seu endereco publico, e o STUN responde com o IP e porta que o NAT expos">
+        <defs>
+          <marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+          </marker>
+        </defs>
+
+        <rect x="30" y="90" width="150" height="70" rx="6" class="s-fill-raised s-stroke-wire" stroke-width="1.5"/>
+        <text x="105" y="120" font-size="12" text-anchor="middle" class="s-ink" font-weight="700">Seu PC</text>
+        <text x="105" y="138" font-size="10" text-anchor="middle" class="s-host">192.168.3.6:51879</text>
+
+        <rect x="330" y="90" width="120" height="70" rx="8" class="s-fill-ground s-stroke-wire" stroke-width="1.5"/>
+        <text x="390" y="130" font-size="12" text-anchor="middle" class="s-muted" font-weight="700">NAT</text>
+
+        <rect x="640" y="90" width="230" height="70" rx="6" class="s-fill-raised s-stroke-wire" stroke-width="1.5"/>
+        <text x="755" y="118" font-size="12" text-anchor="middle" class="s-ink" font-weight="700">STUN (Google)</text>
+        <text x="755" y="136" font-size="10" text-anchor="middle" class="s-muted">stun.l.google.com:19302</text>
+
+        <line x1="180" y1="110" x2="638" y2="110" class="s-srflx-s" stroke-width="2" marker-end="url(#ar3)"/>
+        <text x="410" y="102" font-size="10" text-anchor="middle" class="s-muted">1. Binding Request (UDP)</text>
+
+        <line x1="638" y1="145" x2="180" y2="145" class="s-srflx-s" stroke-width="2" marker-end="url(#ar3)"/>
+        <text x="410" y="163" font-size="10" text-anchor="middle" class="s-srflx" font-weight="700">2. &ldquo;voc&ecirc; veio de 177.84.72.251:51879&rdquo;</text>
+
+        <text x="105" y="185" font-size="10" text-anchor="middle" class="s-srflx" font-weight="700">agora o PC sabe seu srflx</text>
+        <text x="105" y="200" font-size="9" text-anchor="middle" class="s-muted">e pode divulgá-lo ao peer</text>
+      </svg>
+    </div>
+    <figcaption>
+      O STUN n&atilde;o repassa dados nem participa da conversa &mdash; ele
+      responde <b>uma pergunta</b> (&ldquo;qual meu endere&ccedil;o
+      p&uacute;blico?&rdquo;) e sai de cena. O tr&aacute;fego do chat nunca passa
+      por ele.
+    </figcaption>
+  </figure>
+
+  <div class="callout">
+    <span class="label">A ideia central</span>
+    <p>
+      O mesmo pacote de STUN que <em>descobre</em> a porta p&uacute;blica
+      tamb&eacute;m <em>abre</em> o furo no NAT. Depois disso, o peer manda para
+      aquela porta e o furo j&aacute; est&aacute; l&aacute;. Descoberta e abertura
+      s&atilde;o o mesmo ato.
+    </p>
+  </div>
+
+  <h2 id="fluxo"><span class="num">04</span>Os 6 passos da conex&atilde;o</h2>
+
+  <p>
+    Do bot&atilde;o &ldquo;Gerar Offer&rdquo; at&eacute; o &ldquo;CANAL P2P
+    ABERTO&rdquo;. Os passos 1&ndash;3 usam um <strong>canal de signaling</strong>
+    &mdash; no seu teste, voc&ecirc; copiando texto pelo WhatsApp. Um app real usa
+    um WebSocket. A partir do passo 5 nada mais passa por servidor.
+  </p>
+
+  <figure>
+    <div class="figframe">
+      <svg viewBox="0 0 900 470" role="img" aria-label="Diagrama de sequencia dos seis passos: offer via signaling, answer via signaling, troca de candidatos ICE, testes de conectividade, conexao direta estabelecida, e chat P2P sem servidor">
+        <defs>
+          <marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+          </marker>
+        </defs>
+
+        <!-- lifelines -->
+        <text x="120" y="30" font-size="12" text-anchor="middle" class="s-ink" font-weight="700">CHAMADOR</text>
+        <text x="120" y="45" font-size="9" text-anchor="middle" class="s-muted">seu PC</text>
+        <line x1="120" y1="55" x2="120" y2="440" class="s-stroke-wire" stroke-width="1.5"/>
+
+        <text x="450" y="30" font-size="12" text-anchor="middle" class="s-muted" font-weight="700">SIGNALING</text>
+        <text x="450" y="45" font-size="9" text-anchor="middle" class="s-muted">WhatsApp / WebSocket</text>
+        <line x1="450" y1="55" x2="450" y2="270" class="s-stroke-wire" stroke-width="1.5" stroke-dasharray="4 4"/>
+        <text x="450" y="292" font-size="8.5" text-anchor="middle" class="s-muted">(sai de cena)</text>
+
+        <text x="780" y="30" font-size="12" text-anchor="middle" class="s-ink" font-weight="700">RECEPTOR</text>
+        <text x="780" y="45" font-size="9" text-anchor="middle" class="s-muted">seu celular (4G)</text>
+        <line x1="780" y1="55" x2="780" y2="440" class="s-stroke-wire" stroke-width="1.5"/>
+
+        <!-- 1 offer -->
+        <text x="120" y="78" font-size="9" text-anchor="middle" class="s-muted">createOffer()</text>
+        <line x1="120" y1="88" x2="448" y2="88" class="s-srflx-s" stroke-width="2" marker-end="url(#ar4)"/>
+        <text x="284" y="81" font-size="10" text-anchor="middle" class="s-srflx" font-weight="700">1. SDP offer</text>
+        <line x1="452" y1="100" x2="780" y2="100" class="s-srflx-s" stroke-width="2" marker-end="url(#ar4)"/>
+        <text x="616" y="93" font-size="9" text-anchor="middle" class="s-muted">setRemoteDescription(offer)</text>
+
+        <!-- 2 answer -->
+        <text x="780" y="128" font-size="9" text-anchor="middle" class="s-muted">createAnswer()</text>
+        <line x1="780" y1="138" x2="452" y2="138" class="s-host-s" stroke-width="2" marker-end="url(#ar4)"/>
+        <text x="616" y="131" font-size="10" text-anchor="middle" class="s-host" font-weight="700">2. SDP answer</text>
+        <line x1="448" y1="150" x2="120" y2="150" class="s-host-s" stroke-width="2" marker-end="url(#ar4)"/>
+        <text x="284" y="143" font-size="9" text-anchor="middle" class="s-muted">setRemoteDescription(answer)</text>
+
+        <!-- 3 candidates -->
+        <line x1="120" y1="182" x2="448" y2="182" class="s-stroke-wire" stroke-width="1.5" marker-end="url(#ar4)"/>
+        <line x1="452" y1="182" x2="780" y2="182" class="s-stroke-wire" stroke-width="1.5" marker-end="url(#ar4)"/>
+        <line x1="780" y1="200" x2="452" y2="200" class="s-stroke-wire" stroke-width="1.5" marker-end="url(#ar4)"/>
+        <line x1="448" y1="200" x2="120" y2="200" class="s-stroke-wire" stroke-width="1.5" marker-end="url(#ar4)"/>
+        <text x="450" y="222" font-size="10" text-anchor="middle" class="s-ink" font-weight="700">3. candidatos ICE (host, srflx&hellip;)</text>
+        <text x="450" y="236" font-size="8.5" text-anchor="middle" class="s-muted">no seu teste v&atilde;o embutidos no SDP (vanilla ICE)</text>
+
+        <!-- divisor -->
+        <line x1="60" y1="310" x2="840" y2="310" class="s-stroke-wire" stroke-width="1" stroke-dasharray="2 4"/>
+        <text x="60" y="304" font-size="8.5" class="s-muted">&mdash;&mdash; daqui pra baixo: sem servidor &mdash;&mdash;</text>
+
+        <!-- 4 checks -->
+        <path d="M120 340 C 400 320, 500 320, 780 340" fill="none" class="s-srflx-s" stroke-width="2" marker-end="url(#ar4)"/>
+        <path d="M780 356 C 500 376, 400 376, 120 356" fill="none" class="s-srflx-s" stroke-width="2" marker-end="url(#ar4)"/>
+        <text x="450" y="332" font-size="10" text-anchor="middle" class="s-srflx" font-weight="700">4. connectivity checks (STUN ping em cada par)</text>
+
+        <!-- 5 connected -->
+        <line x1="120" y1="392" x2="780" y2="392" class="s-srflx-s" stroke-width="3"/>
+        <text x="450" y="385" font-size="10" text-anchor="middle" class="s-srflx" font-weight="700">5. par vencedor &rarr; iceConnectionState: connected</text>
+
+        <!-- 6 chat -->
+        <line x1="120" y1="420" x2="775" y2="420" class="s-ink" stroke="currentColor" stroke-width="2" marker-end="url(#ar4)" style="stroke: var(--ink)"/>
+        <line x1="780" y1="432" x2="125" y2="432" class="s-ink" stroke-width="2" marker-end="url(#ar4)" style="stroke: var(--ink)"/>
+        <text x="450" y="414" font-size="10" text-anchor="middle" class="s-ink" font-weight="700">6. DataChannel &mdash; &ldquo;Oi?&rdquo; / &ldquo;Oiee&rdquo; direto, cifrado (DTLS)</text>
+      </svg>
+    </div>
+    <figcaption>
+      O SDP (passos 1&ndash;2) descreve <b>o que</b> falar &mdash; codecs, chaves
+      DTLS. Os candidatos (passo 3) descrevem <b>por onde</b>. Os testes (passo 4)
+      s&atilde;o pings STUN entre cada combina&ccedil;&atilde;o &ldquo;meu
+      candidato &times; teu candidato&rdquo;; o primeiro par que responde
+      vence e vira a rota (passo 5).
+    </figcaption>
+  </figure>
+
+  <h3>Por que dois textos (offer e answer) e n&atilde;o um s&oacute;</h3>
+  <p>
+    A offer &eacute; uma <em>proposta</em>: &ldquo;suporto estes codecs, uso estas
+    chaves, me ache por estes candidatos&rdquo;. A answer &eacute; a
+    <em>intersec&ccedil;&atilde;o</em>: o receptor responde s&oacute; com o que os
+    dois t&ecirc;m em comum. Se os dois lados mandassem proposta ao mesmo tempo,
+    haveria conflito &mdash; isso tem nome (<em>glare</em>) e um protocolo
+    pr&oacute;prio pra resolver (<em>perfect negotiation</em>). Ter um chamador e
+    um receptor evita o problema.
+  </p>
+
+  <h2 id="candidatos"><span class="num">05</span>Os tr&ecirc;s tipos de candidato ICE</h2>
+
+  <p>
+    Um <strong>candidato</strong> &eacute; uma rota poss&iacute;vel para te
+    alcan&ccedil;ar: um <code>IP:porta</code> mais o tipo. O navegador coleta
+    todos que conseguir e manda para o outro lado. O ICE (<em>Interactive
+    Connectivity Establishment</em>) ent&atilde;o testa cada par.
+  </p>
+
+  <table>
+    <thead>
+      <tr><th>tipo</th><th>exemplo (do seu teste)</th><th>de onde vem</th><th>quando serve</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="tag host">host</span></td>
+        <td class="mono">192.168.3.6:51879</td>
+        <td>o SO lista as interfaces de rede locais</td>
+        <td>s&oacute; se os peers est&atilde;o na <strong>mesma</strong> LAN</td>
+      </tr>
+      <tr>
+        <td><span class="tag srflx">srflx</span></td>
+        <td class="mono">177.84.72.251:51879</td>
+        <td>resposta do servidor <strong>STUN</strong></td>
+        <td>o caso normal do P2P entre redes diferentes</td>
+      </tr>
+      <tr>
+        <td><span class="tag relay">relay</span></td>
+        <td class="mono">(n&atilde;o apareceu &mdash; sem TURN)</td>
+        <td>endere&ccedil;o alocado num servidor <strong>TURN</strong></td>
+        <td>&uacute;ltimo recurso, quando nada direto funciona</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <figure>
+    <div class="figframe">
+      <svg viewBox="0 0 900 320" role="img" aria-label="As tres rotas candidatas entre os dois peers: host pela LAN local que nao conecta redes diferentes, srflx pelos enderecos publicos dos NATs que e a rota vencedora, e relay passando por um servidor TURN">
+        <defs>
+          <marker id="ar5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+          </marker>
+        </defs>
+
+        <rect x="30" y="120" width="150" height="80" rx="8" class="s-fill-raised s-stroke-wire" stroke-width="1.5"/>
+        <text x="105" y="150" font-size="12" text-anchor="middle" class="s-ink" font-weight="700">PC</text>
+        <text x="105" y="168" font-size="9" text-anchor="middle" class="s-host">192.168.3.6</text>
+        <text x="105" y="182" font-size="9" text-anchor="middle" class="s-srflx">177.84.72.251</text>
+
+        <rect x="720" y="120" width="150" height="80" rx="8" class="s-fill-raised s-stroke-wire" stroke-width="1.5"/>
+        <text x="795" y="150" font-size="12" text-anchor="middle" class="s-ink" font-weight="700">Celular</text>
+        <text x="795" y="168" font-size="9" text-anchor="middle" class="s-host">10.53.201.8</text>
+        <text x="795" y="182" font-size="9" text-anchor="middle" class="s-srflx">201.17.44.9</text>
+
+        <!-- host: falha -->
+        <path d="M180 135 C 400 90, 500 90, 720 135" fill="none" class="s-host-s" stroke-width="1.8" stroke-dasharray="6 5"/>
+        <text x="450" y="95" font-size="10" text-anchor="middle" class="s-host" font-weight="700">host &times; host</text>
+        <text x="450" y="109" font-size="8.5" text-anchor="middle" class="s-muted">redes privadas diferentes &mdash; n&atilde;o roteável</text>
+
+        <!-- srflx: vence -->
+        <path d="M180 165 C 400 165, 500 165, 720 165" fill="none" class="s-srflx-s" stroke-width="3" marker-end="url(#ar5)"/>
+        <text x="450" y="158" font-size="10" text-anchor="middle" class="s-srflx" font-weight="700">srflx &times; srflx &mdash; ROTA VENCEDORA</text>
+
+        <!-- relay: alternativo -->
+        <rect x="410" y="235" width="80" height="46" rx="6" class="s-fill-ground s-relay-s" stroke-width="1.5"/>
+        <text x="450" y="255" font-size="11" text-anchor="middle" class="s-relay" font-weight="700">TURN</text>
+        <text x="450" y="270" font-size="8" text-anchor="middle" class="s-muted">IP fixo p&uacute;blico</text>
+        <path d="M180 195 C 280 250, 340 258, 408 258" fill="none" class="s-relay-s" stroke-width="1.8" stroke-dasharray="4 4" marker-end="url(#ar5)"/>
+        <path d="M492 258 C 560 258, 620 250, 720 195" fill="none" class="s-relay-s" stroke-width="1.8" stroke-dasharray="4 4" marker-end="url(#ar5)"/>
+        <text x="450" y="300" font-size="8.5" text-anchor="middle" class="s-relay">relay: s&oacute; se o srflx falhar (retransmite tudo)</text>
+      </svg>
+    </div>
+    <figcaption>
+      As tr&ecirc;s rotas s&atilde;o testadas em paralelo, por ordem de
+      prioridade: <b>host &gt; srflx &gt; relay</b>. No seu teste o par
+      <span class="ip srflx">srflx&times;srflx</span> respondeu &mdash; conex&atilde;o
+      direta, sem nenhum servidor no meio do tr&aacute;fego.
+    </figcaption>
+    <div class="legend">
+      <span><i class="swatch dash" style="color: var(--host)"></i> host &mdash; LAN local</span>
+      <span><i class="swatch" style="background: var(--srflx)"></i> srflx &mdash; via STUN (venceu)</span>
+      <span><i class="swatch dash" style="color: var(--relay)"></i> relay &mdash; via TURN</span>
+    </div>
+  </figure>
+
+  <h2 id="simetrico"><span class="num">06</span>Quando falha: NAT sim&eacute;trico e TURN</h2>
+
+  <p>
+    O truque do <code>srflx</code> assume que o NAT usa <strong>a mesma porta
+    p&uacute;blica</strong> independentemente do destino. NAT assim chama-se
+    <em>cone</em>, e a maioria dos roteadores dom&eacute;sticos &eacute; assim.
+  </p>
+  <p>
+    Um <strong>NAT sim&eacute;trico</strong> &mdash; comum em CGNAT de operadora
+    m&oacute;vel e redes corporativas &mdash; escolhe <strong>uma porta
+    diferente para cada destino</strong>. A porta que o STUN viu (destino =
+    servidor STUN) n&atilde;o &eacute; a que o peer usaria (destino = peer). O
+    endere&ccedil;o <code>srflx</code> fica in&uacute;til, e o ICE termina em
+    <code>failed</code>.
+  </p>
+
+  <figure>
+    <div class="figframe">
+      <svg viewBox="0 0 900 300" role="img" aria-label="Comparacao entre NAT cone, que usa a mesma porta publica para qualquer destino e permite P2P direto, e NAT simetrico, que usa portas diferentes por destino e quebra o truque do srflx">
+        <defs>
+          <marker id="ar6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+          </marker>
+        </defs>
+
+        <!-- CONE -->
+        <text x="225" y="28" font-size="12" text-anchor="middle" class="s-srflx" font-weight="700">NAT CONE &mdash; funciona</text>
+        <rect x="60" y="45" width="90" height="46" rx="5" class="s-fill-raised s-stroke-wire" stroke-width="1.3"/>
+        <text x="105" y="72" font-size="10" text-anchor="middle" class="s-ink">PC</text>
+        <rect x="190" y="45" width="90" height="46" rx="5" class="s-fill-ground s-stroke-wire" stroke-width="1.3"/>
+        <text x="235" y="66" font-size="9" text-anchor="middle" class="s-muted">NAT</text>
+        <text x="235" y="80" font-size="9" text-anchor="middle" class="s-srflx" font-weight="700">:51879</text>
+        <line x1="150" y1="68" x2="188" y2="68" class="s-stroke-wire" stroke-width="1.5"/>
+
+        <text x="360" y="120" font-size="9" text-anchor="middle" class="s-muted">p/ STUN</text>
+        <line x1="280" y1="60" x2="410" y2="110" class="s-srflx-s" stroke-width="1.6" marker-end="url(#ar6)"/>
+        <text x="360" y="175" font-size="9" text-anchor="middle" class="s-muted">p/ peer</text>
+        <line x1="280" y1="78" x2="410" y2="165" class="s-srflx-s" stroke-width="1.6" marker-end="url(#ar6)"/>
+        <text x="430" y="113" font-size="9" class="s-srflx" font-weight="700">origem :51879</text>
+        <text x="430" y="168" font-size="9" class="s-srflx" font-weight="700">origem :51879 &larr; igual</text>
+
+        <!-- divisor -->
+        <line x1="450" y1="20" x2="450" y2="280" class="s-stroke-wire" stroke-width="1" stroke-dasharray="3 4"/>
+
+        <!-- SIMETRICO -->
+        <text x="675" y="28" font-size="12" text-anchor="middle" class="s-danger" font-weight="700">NAT SIM&Eacute;TRICO &mdash; quebra</text>
+        <rect x="510" y="45" width="90" height="46" rx="5" class="s-fill-raised s-stroke-wire" stroke-width="1.3"/>
+        <text x="555" y="72" font-size="10" text-anchor="middle" class="s-ink">Celular</text>
+        <rect x="640" y="45" width="90" height="46" rx="5" class="s-fill-ground s-stroke-wire" stroke-width="1.3"/>
+        <text x="685" y="66" font-size="9" text-anchor="middle" class="s-muted">CGNAT</text>
+        <text x="685" y="80" font-size="8.5" text-anchor="middle" class="s-danger" font-weight="700">porta varia</text>
+        <line x1="600" y1="68" x2="638" y2="68" class="s-stroke-wire" stroke-width="1.5"/>
+
+        <line x1="730" y1="60" x2="820" y2="110" class="s-danger-s" stroke-width="1.6" marker-end="url(#ar6)"/>
+        <line x1="730" y1="78" x2="820" y2="165" class="s-danger-s" stroke-width="1.6" marker-end="url(#ar6)"/>
+        <text x="840" y="113" font-size="9" class="s-muted" text-anchor="end">STUN v&ecirc; :44210</text>
+        <text x="840" y="168" font-size="9" class="s-danger" text-anchor="end" font-weight="700">peer receberia :51002</text>
+        <text x="675" y="210" font-size="9" text-anchor="middle" class="s-muted">o :44210 que foi divulgado n&atilde;o casa &rarr; pacote descartado</text>
+        <text x="675" y="232" font-size="10" text-anchor="middle" class="s-danger" font-weight="700">iceConnectionState: failed</text>
+        <text x="675" y="254" font-size="9" text-anchor="middle" class="s-relay" font-weight="700">&rarr; s&oacute; TURN resolve</text>
+      </svg>
+    </div>
+    <figcaption>
+      NAT cone reusa a porta para qualquer destino, ent&atilde;o o endere&ccedil;o
+      que o STUN reporta vale para o peer. NAT sim&eacute;trico gera uma porta
+      nova por destino, ent&atilde;o o endere&ccedil;o divulgado <b>j&aacute;
+      est&aacute; errado</b> quando o peer tenta usar. Cerca de 10&ndash;20% das
+      conex&otilde;es reais caem nesse caso e precisam de TURN.
+    </figcaption>
+  </figure>
+
+  <h3>O que o TURN faz</h3>
+  <p>
+    Um servidor <strong>TURN</strong> (<em>Traversal Using Relays around NAT</em>)
+    tem IP p&uacute;blico fixo &mdash; sempre alcan&ccedil;&aacute;vel pelos dois
+    lados. Cada peer abre uma conex&atilde;o de sa&iacute;da at&eacute; ele (o que
+    qualquer NAT permite) e o TURN <strong>retransmite</strong> cada pacote de um
+    para o outro. Deixa de ser P2P puro: o tr&aacute;fego todo passa por um
+    intermedi&aacute;rio, que consome banda e custa dinheiro. Por isso &eacute;
+    &uacute;ltimo recurso &mdash; o ICE s&oacute; usa <code>relay</code> quando
+    nenhum par direto responde.
+  </p>
+  <pre class="log"><span class="i">iceServers</span>: [
+  { urls: <span class="b">'stun:stun.l.google.com:19302'</span> },              <span class="i">// descoberta, de gra&ccedil;a</span>
+  { urls: <span class="a">'turn:seu-servidor.com:3478'</span>,               <span class="i">// retransmiss&atilde;o, pago</span>
+    username: <span class="a">'user'</span>, credential: <span class="a">'senha'</span> }
+]</pre>
+
+  <h2 id="seulog"><span class="num">07</span>Lendo o seu pr&oacute;prio log</h2>
+
+  <p>
+    Este &eacute; o log que a sua tela mostrou, anotado. Cada linha &eacute; um
+    evento real do <code>RTCPeerConnection</code>.
+  </p>
+
+  <pre class="log"><span class="i">papel: CHAMADOR</span>
+<span class="i">offer criada, aguardando ICE gathering completo...</span>   <span class="i">&larr; setLocalDescription() disparou a coleta</span>
+<span class="b">candidato: host</span>                                    <span class="i">&larr; 192.168.3.6 &mdash; sua LAN, inútil p/ o 4G</span>
+<span class="g">candidato: srflx</span>                                   <span class="i">&larr; 177.84.72.251:51879 &mdash; STUN revelou seu IP p&uacute;blico</span>
+<span class="i">offer pronta! copie o texto do campo acima.</span>
+<span class="i">coleta de candidatos terminou.</span>                     <span class="i">&larr; onicecandidate com candidate = null</span>
+<span class="g">ICE state: checking</span>                                <span class="i">&larr; recebeu a answer; testando pares de candidatos</span>
+<span class="i">answer aceita. ICE deve conectar em instantes...</span>
+<span class="g">ICE state: connected</span>                               <span class="i">&larr; um par respondeu &mdash; existe rota direta PC&harr;4G</span>
+<span class="g">&gt;&gt;&gt; CANAL P2P ABERTO! &lt;&lt;&lt;</span>                          <span class="i">&larr; SCTP/DTLS pronto; channel.onopen</span>
+<span class="i">enviou: Oi?</span>                                        <span class="i">&larr; channel.send() &mdash; direto pela rota srflx</span>
+<span class="g">recebeu: Oiee</span>                                       <span class="i">&larr; channel.onmessage &mdash; resposta do celular, sem servidor</span></pre>
+
+  <div class="callout">
+    <span class="label">O que voc&ecirc; provou</span>
+    <p>
+      Que existe uma rota UDP direta entre o seu PC (atr&aacute;s do NAT de casa)
+      e o seu celular (atr&aacute;s do CGNAT da operadora), descoberta com um
+      servidor STUN gr&aacute;tis e um &ldquo;signaling&rdquo; de copiar/colar. O
+      <code>Oi? / Oiee</code> n&atilde;o passou por servidor nenhum &mdash; s&oacute;
+      pelos dois roteadores, cada um com o furo que o pacote de STUN abriu.
+    </p>
+  </div>
+
+  <h3>Referências</h3>
+  <p class="mono" style="font-size: .82rem; color: var(--muted);">
+    MDN &mdash; WebRTC API &middot; &ldquo;Signaling and video calling&rdquo;<br>
+    RFC 8445 (ICE) &middot; RFC 5389 (STUN) &middot; RFC 8656 (TURN)<br>
+    chrome://webrtc-internals &mdash; inspetor de conex&otilde;es ao vivo no Chrome
+  </p>
+
+</main>
