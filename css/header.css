@@ -86,6 +86,22 @@
 }
 .pilula:hover { background: #161616; border-color: #5A5A5A; }
 
+/* pílula que carrega só um ícone: quadrada, sem o padding lateral de texto */
+.pilula.icone { padding: 8px; }
+
+/* Material Symbols. A fonte é variável; estes eixos deixam o traço na mesma
+   espessura visual do texto Archivo ao redor. */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: normal;
+  display: block;
+  font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 20;
+}
+
 /* botão principal: pêssego cheio, texto escuro */
 .acao {
   font-family: var(--fonte);

@@ -31,10 +31,18 @@ export async function alternarTelaCheia() {
   }
 }
 
-/* O evento cobre também o caso de sair pelo Esc, que não passa pelo botão. */
-document.addEventListener('fullscreenchange', () => {
-  el.txtFull.textContent = emTelaCheia() ? 'Sair da tela cheia' : 'Tela cheia';
-});
+/* O evento cobre também o caso de sair pelo Esc, que não passa pelo botão.
+   O <span> carrega o NOME do glifo Material Symbols como texto — a fonte o
+   desenha. O rótulo acessível (aria-label/title) vai no botão, não no ícone,
+   que é aria-hidden. */
+function refletirTelaCheia() {
+  const cheia = emTelaCheia();
+  el.txtFull.textContent = cheia ? 'fullscreen_exit' : 'fullscreen';
+  const rotulo = cheia ? 'Sair da tela cheia (F)' : 'Tela cheia (F)';
+  el.btnFull.setAttribute('aria-label', rotulo);
+  el.btnFull.title = rotulo;
+}
+document.addEventListener('fullscreenchange', refletirTelaCheia);
 
 el.btnFull.addEventListener('click', alternarTelaCheia);
 

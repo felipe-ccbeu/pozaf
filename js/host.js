@@ -31,8 +31,15 @@ export async function iniciarHost() {
   try {
     status('Escolha o que compartilhar na janela do navegador…');
     palcoCarregando('Escolha o que compartilhar…');
+    /* ideal pede a resolução alvo; max é o teto. Se a tela capturada for
+       menor (quase todo mundo tem menos que 4K), o navegador entrega o que
+       tem em vez de recusar — e a gente confere logo abaixo. */
     stream = await navigator.mediaDevices.getDisplayMedia({
-      video: { frameRate: 30, width: { max: largura } },
+      video: {
+        frameRate: 30,
+        width:  { ideal: largura, max: largura },
+        height: { ideal: Math.round(largura * 9 / 16) },
+      },
       audio: true,
     });
   } catch (err) {
@@ -55,15 +62,34 @@ export async function iniciarHost() {
      nitidez sobre fluidez". Faz diferença real para ler código na tela. */
   trackVideo.contentHint = 'detail';
 
-  /* ---- 5.2 Áudio: checar de verdade se veio ----------------------------
-     Pedir audio:true não garante nada. Firefox e Safari IGNORAM o pedido em
-     silêncio — sem erro, sem aviso, simplesmente vem sem faixa de áudio. Só
-     Chrome e Edge entregam. Então em vez de confiar, contamos as faixas. */
-  if (stream.getAudioTracks().length === 0) {
-    aviso('Sem áudio: seu navegador não capturou som da tela. Só Chrome e '
-        + 'Edge fazem isso (e você precisa marcar "compartilhar áudio" na '
-        + 'janela de seleção). O vídeo funciona normalmente.');
+  /* ---- Montar os avisos: resolução e áudio -----------------------------
+     Os dois compartilham a mesma faixa amarela (aviso() substitui o texto),
+     então acumulamos numa lista e mostramos de uma vez só. */
+  const avisos = [];
+
+  /* Pedir 4K não entrega 4K: getDisplayMedia dá no máximo o tamanho da tela
+     (ou da janela) que a pessoa escolheu compartilhar. Se você pediu 2K/4K e
+     veio bem menos, avisa — senão a pessoa acha que está transmitindo em
+     alta e não está. */
+  const alvo = { 3840: '4K', 2560: '2K', 1920: '1080p', 1280: '720p' }[largura];
+  const larguraReal = trackVideo.getSettings().width || 0;
+  if (larguraReal && larguraReal < largura * 0.9) {
+    avisos.push(`Você pediu ${alvo}, mas a fonte só entrega ${larguraReal}px `
+      + `de largura (é o tamanho da tela ou janela que você escolheu). A `
+      + `transmissão vai nessa resolução — para chegar a ${alvo}, compartilhe `
+      + `uma tela que tenha essa resolução.`);
   }
+
+  /* Áudio: pedir audio:true não garante nada. Firefox e Safari IGNORAM o
+     pedido em silêncio — sem erro, sem aviso, simplesmente vem sem faixa de
+     áudio. Só Chrome e Edge entregam. Então contamos as faixas. */
+  if (stream.getAudioTracks().length === 0) {
+    avisos.push('Sem áudio: seu navegador não capturou som da tela. Só Chrome '
+      + 'e Edge fazem isso (e você precisa marcar "compartilhar áudio" na '
+      + 'janela de seleção). O vídeo funciona normalmente.');
+  }
+
+  if (avisos.length) aviso(avisos.join('  '));
 
   /* ---- 5.3 Prévia local ------------------------------------------------
      muted = true é obrigatório aqui. Sem isso, o áudio que você acabou de

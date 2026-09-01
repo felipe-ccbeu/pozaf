@@ -12,6 +12,11 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Archivo+Narrow:wght@500;600;700&display=swap" rel="stylesheet">
 
+  <!-- Material Symbols: só os dois glifos que usamos (fullscreen e
+       fullscreen_exit), pedidos num arquivo só. opsz/wght/FILL/GRAD são os
+       eixos variáveis da fonte — o CSS em header.css escolhe os valores. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=fullscreen,fullscreen_exit">
+
   <!-- Tres arquivos em <link> paralelos, e nao @import: o navegador baixa
        os tres de uma vez, enquanto @import so descobre o segundo depois de
        baixar o primeiro. Ordem importa: base define as variaveis. -->
@@ -55,8 +60,10 @@
 
       <button id="btn-parar" class="pilula" hidden>Parar</button>
 
-      <button id="btn-fullscreen" class="pilula" title="Tela cheia (F)">
-        <span id="txt-fullscreen">Tela cheia</span>
+      <button id="btn-fullscreen" class="pilula icone" title="Tela cheia (F)"
+              aria-label="Tela cheia">
+        <span id="txt-fullscreen" class="material-symbols-outlined"
+              aria-hidden="true">fullscreen</span>
       </button>
     </div>
 
