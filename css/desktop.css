@@ -1,0 +1,98 @@
+/* ==========================================================================
+   DESKTOP — so vale dentro do app Electron
+   ==========================================================================
+
+   Tudo aqui esta atras de .no-desktop, uma classe que o js/desktop.js poe no
+   <html> apenas quando roda no app. No navegador nenhuma destas regras casa,
+   entao o site no GitHub Pages continua exatamente igual.
+
+   Existe por um motivo so: a janela do app nao tem moldura (frame:false), e
+   sem moldura o Windows leva embora duas coisas que precisamos devolver —
+   arrastar a janela e os botoes de minimizar / maximizar / fechar.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   ARRASTAR A JANELA
+
+   -webkit-app-region:drag transforma a area num "puxador": arrastar dali move
+   a janela toda. O problema e que essa propriedade e contagiosa e engole os
+   cliques dos filhos — um botao dentro de uma area drag vira parte do
+   puxador e para de funcionar.
+
+   Por isso a regra vem em par: o painel inteiro arrasta, e todo controle
+   dentro dele volta a ser clicavel com no-drag.
+   -------------------------------------------------------------------------- */
+.no-desktop #painel { -webkit-app-region: drag; }
+
+.no-desktop #painel button,
+.no-desktop #painel select,
+.no-desktop #painel input,
+.no-desktop #painel label,
+.no-desktop #btn-header { -webkit-app-region: no-drag; }
+
+/* O espaco vazio da barra empurra os botoes de janela para a direita,
+   e de quebra vira area de arrasto — como na barra de titulo de verdade. */
+.no-desktop .controles-janela {
+  margin-left: auto;
+  display: flex;
+  gap: 2px;
+  -webkit-app-region: no-drag;
+}
+
+/* --------------------------------------------------------------------------
+   OS TRES BOTOES
+
+   Medidas do padrao do Windows (46x32) para o gesto de "jogar o mouse no
+   canto e clicar" continuar funcionando por musculo.
+   -------------------------------------------------------------------------- */
+.no-desktop .btn-janela {
+  width: 46px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: var(--cinza);
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+}
+
+.no-desktop .btn-janela:hover {
+  background: rgba(255, 255, 255, .08);
+  color: var(--branco);
+}
+
+/* Vermelho no fechar: e a convencao do sistema, e o unico dos tres que
+   interrompe uma transmissao em andamento. */
+.no-desktop .btn-janela.fechar:hover {
+  background: var(--laranja);
+  color: var(--branco);
+}
+
+.no-desktop .btn-janela:focus-visible {
+  outline: 2px solid var(--pessego);
+  outline-offset: -2px;
+}
+
+/* --------------------------------------------------------------------------
+   A BARRA RECOLHIDA
+
+   No navegador, recolher a barra e so estetica. No app ela e tambem a barra
+   de titulo: recolhida, some o unico lugar por onde se arrasta a janela.
+
+   A solucao e uma faixa fina e invisivel colada no topo, que continua
+   arrastavel. Ela nao rouba clique de nada porque a seta de reabrir mora
+   ABAIXO da barra, fora desses 8 pixels.
+   -------------------------------------------------------------------------- */
+.no-desktop #barra.recolhido::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 8px;
+  -webkit-app-region: drag;
+}
+
+/* Em tela cheia a moldura ja nao existe mesmo; o arrasto so atrapalharia. */
+.no-desktop:fullscreen #painel { -webkit-app-region: no-drag; }

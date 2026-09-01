@@ -1,0 +1,5 @@
+node_modules/
+dist/
+
+# Gerado na primeira execucao e contem a URL publica de cada maquina.
+desktop/config.json

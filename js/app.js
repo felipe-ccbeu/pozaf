@@ -36,6 +36,10 @@ import { entrarNaSala, definirSala,
    colateral de registrar o botão e os atalhos de teclado. */
 import './tela-cheia.js';
 
+/* Idem: no navegador este modulo nao faz nada. Dentro do app Electron ele
+   devolve os botoes de janela e ensina o host a montar o link publico. */
+import './desktop.js';
+
 /* ============================================================================
    ROTEAMENTO — a mesma página, dois modos
 

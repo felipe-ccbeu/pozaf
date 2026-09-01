@@ -7,6 +7,7 @@
 import { montarIceServers } from './config.js';
 import { el, status, aviso, mostrarVideo, textoBotao,
          liberarHeader, prenderHeader } from './ui.js';
+import { baseDoLink } from './desktop.js';
 
 /* Estado local do host. Fica aqui, e nao num modulo compartilhado,
    porque ninguem de fora precisa mexer nisso. */
@@ -105,7 +106,10 @@ function abrirPeerDoHost(iceServers, tentativa = 1) {
 
   /* --- "open": o broker aceitou nosso id. Só agora a sala existe. ------- */
   peer.on('open', (idConfirmado) => {
-    const url = `${location.origin}${location.pathname}#sala=${idConfirmado}`;
+    /* baseDoLink() e location.origin no navegador, mas no app de desktop
+       vira a URL publica do site: la, location.origin e file:// e o link
+       nao abriria na maquina de ninguem. */
+    const url = `${baseDoLink()}#sala=${idConfirmado}`;
     el.link.value      = url;
     el.areaLink.hidden = false;
     el.btnParar.hidden = false;

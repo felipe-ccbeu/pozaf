@@ -42,6 +42,59 @@ exigem contexto seguro — ou seja, HTTPS ou `localhost`.
 Janela anônima porque o PeerJS guarda estado por origem; duas abas normais
 podem confundir o broker.
 
+## App de desktop (sem as bordas do navegador)
+
+O mesmo projeto roda como app do Windows, numa janela sem moldura — nada de
+barra de endereco, abas ou borda.
+
+```bash
+npm install
+npm start
+```
+
+Se rodar pelo terminal do VS Code e der `Cannot read properties of undefined`,
+use `npm run start:vscode`: o VS Code define `ELECTRON_RUN_AS_NODE=1`, que faz
+o Electron subir como Node puro, sem interface. O script so limpa essa variavel.
+
+### Configure o link antes de usar
+
+**Este passo nao e opcional.** Dentro do app, `location.origin` e `file://`, e
+um link `file://` nao abre na maquina de ninguem. Entao o app precisa saber o
+endereco publico do site para montar o link da sala.
+
+Na primeira execucao ele cria `desktop/config.json`. Abra e ponha o seu
+endereco do GitHub Pages:
+
+```json
+{ "urlPublica": "https://seu-usuario.github.io/pozaf/" }
+```
+
+Enquanto isso nao for feito, o app mostra um aviso amarelo na barra.
+
+**O site continua necessario.** O app deixa bonito o lado de QUEM COMPARTILHA;
+seus amigos continuam entrando pelo link, no navegador deles. Publicar no
+GitHub Pages segue sendo obrigatorio.
+
+### Gerar o instalador
+
+```bash
+npm run build
+```
+
+Sai um `dist/Pozaf Setup 1.0.0.exe` (~150 MB — o Chromium vai junto, e e o que
+garante a captura de tela com audio funcionando igual no Chrome).
+
+### O que muda no app
+
+| | Navegador | App |
+|---|---|---|
+| Moldura da janela | do sistema | nenhuma (arrasta pela barra) |
+| Minimizar/fechar | do sistema | tres botoes na direita da barra |
+| Seletor de tela | janela do Chrome | seletor nativo do Windows |
+| Link da sala | `location.origin` | `urlPublica` do config.json |
+
+Fechar pelo X ou por `Ctrl+W` encerra a transmissao, como esperado.
+
 ## Publicar no GitHub Pages
 
 ```bash
@@ -69,7 +122,18 @@ js/ui.js            status, avisos, a barra    ← mexa aqui p/ ajustes visuais
 js/tela-cheia.js    fullscreen e atalhos F / H
 js/host.js          capturar a tela e transmitir
 js/espectador.js    entrar na sala e receber
+
+desktop/main.js     app: cria a janela sem moldura (processo Node)
+desktop/preload.js  app: a ponte segura entre o Node e a pagina
+desktop/config.json app: a URL publica   ← mexa aqui p/ o link funcionar
+js/desktop.js       app: botoes de janela e o link publico
+css/desktop.css     app: arrastar a janela e os botoes
 ```
+
+Os arquivos de `desktop/` e os dois `desktop.*` so tem efeito dentro do app.
+No navegador, `js/desktop.js` verifica `window.pozaf` e nao faz nada, e o
+`css/desktop.css` esta todo atras da classe `.no-desktop` — por isso o site
+publicado continua identico.
 
 Módulos ES nativos — continua **sem build step e sem npm**. O `index.html`
 carrega só `js/app.js` com `type="module"`; os `import` puxam o resto.
