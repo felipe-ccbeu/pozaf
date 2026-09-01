@@ -25,6 +25,7 @@ export const el = {
   aviso:     $('aviso'),
   video:     $('video'),
   vazio:     $('vazio'),
+  vazioTexto: $('vazio-texto'),
 };
 
 /* O botão principal tem um <span> dentro (por causa do estilo), então
@@ -49,6 +50,25 @@ export function mostrarVideo() {
   el.video.hidden = false;
   el.vazio.hidden = true;
 }
+
+/* ---- O palco vazio ----------------------------------------------------------
+   O #vazio tem o mascote (um <img>) dentro, entao NAO se escreve nele com
+   textContent: isso apagaria a imagem junto. Estas funcoes mexem so no
+   paragrafo de texto, deixando o mascote em paz.
+
+   estado: 'espera' (parado, tudo bem) | 'erro' (deu ruim) | 'carregando'
+   O CSS usa esse atributo para decidir se o mascote pulsa, treme ou fica
+   quieto — ver css/palco.css. */
+
+export function palcoVazio(texto, estado = 'espera') {
+  el.vazio.hidden = false;
+  el.vazioTexto.textContent = texto;
+  el.vazio.dataset.estado = estado;
+  el.video.hidden = true;
+}
+
+/** Atalho para o estado de espera com o mascote girando. */
+export function palcoCarregando(texto) { palcoVazio(texto, 'carregando'); }
 
 /* ---- A barra que recolhe -----------------------------------------------------
    Modelo simples e previsivel: o header tem DOIS estados, aberto ou

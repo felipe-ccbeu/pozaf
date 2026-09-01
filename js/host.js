@@ -5,8 +5,8 @@
    ============================================================================ */
 
 import { montarIceServers } from './config.js';
-import { el, status, aviso, mostrarVideo, textoBotao,
-         liberarHeader, prenderHeader } from './ui.js';
+import { el, status, aviso, mostrarVideo, palcoVazio, palcoCarregando,
+         textoBotao, liberarHeader, prenderHeader } from './ui.js';
 import { baseDoLink } from './desktop.js';
 
 /* Estado local do host. Fica aqui, e nao num modulo compartilhado,
@@ -30,12 +30,14 @@ export async function iniciarHost() {
   const largura = Number(el.selQual.value);
   try {
     status('Escolha o que compartilhar na janela do navegador…');
+    palcoCarregando('Escolha o que compartilhar…');
     stream = await navigator.mediaDevices.getDisplayMedia({
       video: { frameRate: 30, width: { max: largura } },
       audio: true,
     });
   } catch (err) {
     el.btn.disabled = false;
+    palcoVazio('Nada sendo exibido ainda.');
     if (err.name === 'NotAllowedError') {
       status('Você cancelou a seleção. Clique de novo quando quiser.', 'erro');
     } else if (err.name === 'NotFoundError') {
@@ -98,6 +100,7 @@ function abrirPeerDoHost(iceServers, tentativa = 1) {
   const idSala = 'tela-' + Math.random().toString(36).slice(2, 10);
 
   status('Conectando ao servidor de sinalização…');
+  palcoCarregando('Abrindo a sala…');
 
   peer = new Peer(idSala, {
     config: { iceServers },   // <- vai direto para o RTCPeerConnection
@@ -199,9 +202,7 @@ export function encerrarHost() {
   espectadores.clear();
 
   el.video.srcObject = null;
-  el.video.hidden    = true;
-  el.vazio.hidden    = false;
-  el.vazio.textContent = 'Compartilhamento encerrado.';
+  palcoVazio('Compartilhamento encerrado.');
   el.areaLink.hidden = true;
   el.btnParar.hidden = true;
   el.contador.hidden = true;

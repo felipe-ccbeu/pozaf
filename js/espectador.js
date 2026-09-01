@@ -5,7 +5,7 @@
    ============================================================================ */
 
 import { CONFIG, montarIceServers } from './config.js';
-import { el, status, aviso, mostrarVideo,
+import { el, status, aviso, mostrarVideo, palcoVazio, palcoCarregando,
          textoBotao, liberarHeader, prenderHeader } from './ui.js';
 
 let peer = null;
@@ -18,6 +18,7 @@ export async function entrarNaSala() {
   el.btn.disabled = true;
   aviso('');
   status('Conectando ao servidor de sinalização…');
+  palcoCarregando('Conectando…');
 
   const iceServers = await montarIceServers();
 
@@ -27,6 +28,7 @@ export async function entrarNaSala() {
 
   peer.on('open', () => {
     status('Procurando a sala…');
+    palcoCarregando('Procurando a sala…');
 
     /* Canal de DADOS. Não mandamos nada por ele — ele existe só para o host
        descobrir o nosso id e poder nos ligar de volta com o vídeo. */
@@ -34,12 +36,13 @@ export async function entrarNaSala() {
 
     conn.on('open', () => {
       status('Na sala. Esperando o vídeo do host…');
+      palcoCarregando('Na sala. Esperando o vídeo do host…');
       armarVigia();   // se o vídeo não chegar, é quase sempre NAT
     });
 
     conn.on('close', () => {
       status('O host encerrou a transmissão.', 'erro');
-      el.vazio.textContent = 'O host encerrou a transmissão.';
+      palcoVazio('O host encerrou a transmissão.');
     });
   });
 
@@ -76,9 +79,7 @@ export async function entrarNaSala() {
       status('Transmissão encerrada pelo host.');
       prenderHeader();
       el.video.srcObject = null;
-      el.video.hidden = true;
-      el.vazio.hidden = false;
-      el.vazio.textContent = 'Transmissão encerrada.';
+      palcoVazio('Transmissão encerrada.');
     });
   });
 
@@ -91,14 +92,19 @@ export async function entrarNaSala() {
     textoBotao('Tentar de novo');
 
     if (err.type === 'peer-unavailable') {
+      /* O nosso 404: o link existe, mas a sala nao. */
       status('Sala não encontrada — o host já abriu a dele? '
            + 'Peça para ele conferir se ainda está compartilhando, ou mandar '
            + 'um link novo (o id muda a cada sessão).', 'erro');
+      palcoVazio('Sala não encontrada. O link pode ter expirado — '
+               + 'o id muda a cada sessão.', 'erro');
     } else if (err.type === 'network' || err.type === 'server-error') {
       status('Não consegui falar com o servidor de sinalização. '
            + 'Confira sua internet e tente de novo.', 'erro');
+      palcoVazio('Sem contato com o servidor. Confira sua internet.', 'erro');
     } else {
       status('Erro: ' + err.type, 'erro');
+      palcoVazio('Deu ruim: ' + err.type, 'erro');
     }
 
     /* Rearma o botão para uma nova tentativa. */

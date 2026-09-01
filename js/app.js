@@ -26,7 +26,8 @@
 
 'use strict';
 
-import { el, status, prenderHeader }        from './ui.js';
+import { el, status, prenderHeader,
+         palcoVazio }                       from './ui.js';
 import { iniciarHost, encerrarHost,
          derrubarHost }                     from './host.js';
 import { entrarNaSala, definirSala,
@@ -68,12 +69,24 @@ if (salaAlvo) {
   el.btn.querySelector('span').textContent = 'Entrar na sala';
   el.btn.disabled = false;
   status('Pronto. Clique em "Entrar na sala".');
+  palcoVazio('Sala ' + salaAlvo + '. Clique em "Entrar na sala" para assistir.');
 
   /* O clique é OBRIGATÓRIO, não é preguiça de UI: o stream vem com áudio, e
      todo navegador bloqueia autoplay com som sem um gesto do usuário. Se
      tentássemos conectar sozinhos no load, o vídeo chegaria e ficaria
      congelado no primeiro quadro, mudo. */
   el.btn.addEventListener('click', entrarNaSala, { once: true });
+
+} else if (location.hash.startsWith('#sala')) {
+  /* ---------------------------------------------- LINK QUEBRADO (404)
+     Tem "#sala" na URL mas nada utilizavel depois — link truncado no
+     WhatsApp, copiado pela metade. Sem este ramo cairiamos calados no modo
+     host, e a pessoa acharia que o link do amigo "abriu certo". */
+  el.modo.textContent = 'espectador';
+  el.btn.hidden = true;
+  status('Link inválido.', 'erro');
+  palcoVazio('Esse link está incompleto. Peça para o host mandar de novo — '
+           + 'ele costuma quebrar quando cola cortado.', 'erro');
 
 } else {
   /* ------------------------------------------------------ MODO HOST */

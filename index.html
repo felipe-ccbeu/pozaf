@@ -42,6 +42,8 @@
       <label id="qualidade" class="pilula" hidden>
         <span class="rotulo">Qualidade</span>
         <select id="sel-qualidade">
+          <option value="3840">4K</option>
+          <option value="2560">2K</option>
           <option value="1920">1080p</option>
           <option value="1280" selected>720p</option>
         </select>
@@ -94,8 +96,14 @@
   <main id="palco">
     <video id="video" autoplay playsinline hidden></video>
 
-    <div id="vazio">
-      <p>Nada sendo exibido ainda.</p>
+    <!-- O estado vazio do palco: serve para "nada sendo exibido", para
+         "sala nao encontrada" (o nosso 404) e para as esperas. Quem troca
+         o texto e o data-estado e a funcao palcoVazio(), em js/ui.js —
+         nunca textContent direto, senao o mascote some junto. -->
+    <div id="vazio" data-estado="espera">
+      <img id="vazio-img" src="img/techy.jpg" alt="" width="160" height="160"
+           draggable="false">
+      <p id="vazio-texto">Nada sendo exibido ainda.</p>
     </div>
   </main>
 
