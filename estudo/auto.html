@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WebRTC — Exemplo 2 (interativo): signaling automatico via WebSocket</title>
+  <style>
+    :root {
+      --bg: #0d1117; --panel: #161b22; --border: #30363d; --text: #c9d1d9;
+      --muted: #8b949e; --accent: #58a6ff; --ok: #3fb950; --warn: #d29922; --err: #f85149;
+      --code-bg: #010409; --wire: #d2a8ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text);
+      max-width: 1100px; margin: 0 auto; padding: 1rem; line-height: 1.5;
+    }
+    h1 { font-size: 1.25rem; margin: .5rem 0; }
+    h2 { font-size: 1rem; color: var(--accent); margin: 1.2rem 0 .4rem; }
+    .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+    .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+    fieldset { border: 1px solid var(--border); border-radius: 8px; margin: 0 0 1rem; padding: .8rem; }
+    legend { padding: 0 .4rem; color: var(--muted); font-size: .85rem; }
+    button {
+      background: #21262d; color: var(--text); border: 1px solid var(--border);
+      padding: .55rem .9rem; margin: .25rem .25rem .25rem 0; cursor: pointer;
+      font-size: .95rem; border-radius: 6px;
+    }
+    button:hover:not(:disabled) { border-color: var(--accent); }
+    button:disabled { opacity: .4; cursor: not-allowed; }
+    button.primary { background: #238636; border-color: #2ea043; color: #fff; }
+    input[type=text] {
+      width: 100%; padding: .6rem; font-size: 1rem; background: var(--code-bg); color: var(--text);
+      border: 1px solid var(--border); border-radius: 6px; font-family: ui-monospace, monospace;
+    }
+    label.fld { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .2rem; }
+    .row { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+    .row input[type=text] { flex: 1; min-width: 140px; }
+    #log {
+      background: var(--code-bg); color: var(--ok); padding: .8rem; border-radius: 6px;
+      font: 12px ui-monospace, monospace; white-space: pre-wrap; min-height: 140px;
+      max-height: 320px; overflow-y: auto; border: 1px solid var(--border);
+    }
+    .log-info { color: var(--muted); }
+    .log-ok { color: var(--ok); }
+    .log-warn { color: var(--warn); }
+    .log-err { color: var(--err); }
+    .log-ev { color: var(--accent); }
+    .log-ws { color: var(--wire); }
+
+    #explain { min-height: 400px; }
+    .exp-title { font-size: 1.05rem; color: var(--accent); margin-bottom: .3rem; }
+    .exp-what { margin: .5rem 0; }
+    .exp-why {
+      background: #1c2128; border-left: 3px solid var(--warn); padding: .6rem .8rem;
+      border-radius: 0 6px 6px 0; margin: .6rem 0; font-size: .92rem;
+    }
+    .exp-why b { color: var(--warn); }
+    pre.code {
+      background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px;
+      padding: .7rem; overflow-x: auto; font: 12px ui-monospace, monospace; margin: .6rem 0;
+    }
+    pre.code .cmt { color: #6e7681; }
+    pre.code .kw { color: #ff7b72; }
+    pre.code .fn { color: #d2a8ff; }
+    pre.code .str { color: #a5d6ff; }
+
+    .pill { display: inline-block; padding: .1rem .5rem; border-radius: 999px; font-size: .78rem;
+            border: 1px solid var(--border); margin-right: .3rem; }
+    .pill.host { color: #79c0ff; border-color: #1f6feb; }
+    .pill.srflx { color: #56d364; border-color: #238636; }
+    .pill.relay { color: #d29922; border-color: #9e6a03; }
+    .pill.prflx { color: #db61a2; border-color: #bf3989; }
+
+    table.cand { width: 100%; border-collapse: collapse; font-size: .82rem; margin-top: .5rem; }
+    table.cand th, table.cand td { border: 1px solid var(--border); padding: .35rem .5rem; text-align: left; }
+    table.cand th { color: var(--muted); }
+    .state-track { display: flex; gap: .3rem; flex-wrap: wrap; margin: .5rem 0; }
+    .state-track span { padding: .15rem .5rem; border-radius: 4px; font-size: .78rem; background: #21262d; color: var(--muted); }
+    .state-track span.on { background: var(--accent); color: #000; font-weight: 600; }
+
+    .badge { display: inline-block; padding: .15rem .55rem; border-radius: 999px; font-size: .8rem;
+             border: 1px solid var(--border); color: var(--muted); }
+    .badge.on { background: #1f6feb22; border-color: #1f6feb; color: #79c0ff; }
+    .badge.ok { background: #23863622; border-color: #2ea043; color: var(--ok); }
+    .badge.err { background: #f8514922; border-color: var(--err); color: var(--err); }
+    .role-tag { font-weight: 600; }
+    a { color: var(--accent); }
+    .small { font-size: .85rem; color: var(--muted); }
+    .cmp { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; font-size: .82rem; margin: .4rem 0; }
+    .cmp > div { background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px; padding: .5rem .6rem; }
+    .cmp b { color: var(--accent); display: block; margin-bottom: .2rem; }
+  </style>
+</head>
+<body>
+  <h1>Teste P2P interativo #2: signaling automatico (WebSocket)</h1>
+  <p class="small">
+    Igual ao <a href="./manual.html" target="_blank">Exemplo 1</a>, mas sem copiar e colar nada.
+    Um <b>servidor de signaling</b> repassa offer/answer/candidatos entre os dois navegadores da mesma sala.
+    O P2P em si e identico &mdash; o servidor so ajuda na troca inicial de enderecos.
+    Diagrama: <a href="./diagrama.html" target="_blank">artefato visual</a>.
+  </p>
+
+  <div class="cmp">
+    <div><b>manual.html</b> voce = canal de signaling. Vanilla ICE: espera juntar todos os candidatos, exporta um SDP gigante, cola no zap.</div>
+    <div><b>auto.html</b> WebSocket = canal de signaling. Trickle ICE: manda cada candidato solto assim que aparece. Conecta bem mais rapido.</div>
+  </div>
+
+  <div class="layout">
+    <!-- ===================== COLUNA ESQUERDA: A APLICACAO ===================== -->
+    <div class="panel">
+      <fieldset>
+        <legend>1. Servidor de signaling</legend>
+        <label class="fld" for="wsUrl">URL do servidor (o do <code>signaling-server.js</code> exposto por localtunnel / ngrok):</label>
+        <input type="text" id="wsUrl" placeholder="wss://shy-turkeys-take.loca.lt" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <label class="fld" for="sala">Nome da sala (qualquer texto igual nos dois aparelhos):</label>
+        <div class="row">
+          <input type="text" id="sala" value="teste123" autocomplete="off" autocapitalize="off" spellcheck="false">
+          <button id="connectBtn" class="primary">Conectar</button>
+          <button id="leaveBtn" disabled>Sair</button>
+        </div>
+        <div class="small" style="margin-top:.6rem">
+          WebSocket: <span class="badge" id="wsBadge">fechado</span>
+          &nbsp; Papel: <span class="badge" id="roleBadge">&mdash;</span>
+          &nbsp; Peers na sala: <span class="badge" id="peersBadge">0</span>
+        </div>
+        <div class="small" style="margin-top:.4rem">
+          Dica: se a URL for <code>loca.lt</code> e der erro, abra ela no navegador uma vez,
+          clique em "Click to Continue", e volte aqui.
+        </div>
+      </fieldset>
+
+      <h2>Estado da conexao P2P</h2>
+      <div class="small">signalingState:</div>
+      <div class="state-track" id="track-sig">
+        <span data-s="stable">stable</span>
+        <span data-s="have-local-offer">have-local-offer</span>
+        <span data-s="have-remote-offer">have-remote-offer</span>
+      </div>
+      <div class="small">iceConnectionState:</div>
+      <div class="state-track" id="track-ice">
+        <span data-s="new">new</span>
+        <span data-s="checking">checking</span>
+        <span data-s="connected">connected</span>
+        <span data-s="completed">completed</span>
+        <span data-s="failed">failed</span>
+      </div>
+
+      <h2>Candidatos ICE (locais, enviados via trickle)</h2>
+      <table class="cand" id="candTable">
+        <thead><tr><th>dir</th><th>tipo</th><th>endereco:porta</th><th>proto</th></tr></thead>
+        <tbody></tbody>
+      </table>
+
+      <h2>Chat P2P</h2>
+      <input type="text" id="msg" placeholder="conexao aberta? digite e Enter" disabled>
+
+      <h2>Log de eventos</h2>
+      <div id="log"><span class="log-info">preencha a URL do servidor e a sala, depois Conectar...</span></div>
+    </div>
+
+    <!-- ===================== COLUNA DIREITA: EXPLICACAO AO VIVO ===================== -->
+    <div class="panel" id="explain">
+      <div class="exp-title" id="expTitle">Painel de explicacao</div>
+      <div class="exp-what" id="expWhat">
+        Cada passo do signaling automatico aparece aqui: <b>o que</b> aconteceu,
+        <b>o codigo</b> que rodou, e <b>por que</b> e assim &mdash; com foco no que muda
+        em relacao ao copia-e-cola do Exemplo 1.
+      </div>
+      <div id="expBody"></div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    const $ = id => document.getElementById(id);
+    const LS_KEY = 'p2p-auto-ws-url';
+
+    // ---------- helpers de log ----------
+    function log(msg, cls = 'log-info') {
+      const el = $('log');
+      const line = document.createElement('span');
+      line.className = cls;
+      line.textContent = '\n' + msg;
+      el.appendChild(line);
+      el.scrollTop = el.scrollHeight;
+    }
+
+    // ---------- painel de explicacao ----------
+    const TOPICS = {
+      wsOpen: {
+        title: 'WebSocket aberto + { tipo: "entrar", sala }',
+        what: 'O navegador abriu um WebSocket com o servidor de signaling e se anunciou numa sala. ' +
+              'A partir daqui, TUDO que um lado precisa dizer ao outro (offer, answer, candidatos) ' +
+              'passa por esse cano.',
+        code:
+`<span class="kw">const</span> ws = <span class="kw">new</span> <span class="fn">WebSocket</span>(<span class="str">'wss://xxxx.loca.lt'</span>);
+ws.<span class="fn">onopen</span> = () => {
+  ws.<span class="fn">send</span>(<span class="fn">JSON.stringify</span>({ tipo: <span class="str">'entrar'</span>, sala: <span class="str">'teste123'</span> }));
+};`,
+        why: 'No Exemplo 1 o "canal de signaling" era voce no WhatsApp. Agora e uma conexao de rede ' +
+             'sempre aberta. Isso destrava o <b>trickle ICE</b>: da pra mandar cada candidato na hora ' +
+             'que ele aparece, em vez de esperar todos e exportar um SDP unico.'
+      },
+      roleSecond: {
+        title: 'Voce e o SEGUNDO na sala -> voce inicia a chamada',
+        what: 'O servidor avisou <code>pronto-pra-chamar</code>. Convencao simples: o primeiro que entra ' +
+              'espera; o segundo cria o DataChannel e dispara a offer.',
+        code:
+`<span class="kw">if</span> (msg.tipo === <span class="str">'pronto-pra-chamar'</span>) {
+  <span class="fn">criarConexao</span>();
+  pc.<span class="fn">onnegotiationneeded</span> = <span class="kw">async</span> () => {
+    <span class="kw">await</span> pc.<span class="fn">setLocalDescription</span>(<span class="kw">await</span> pc.<span class="fn">createOffer</span>());
+    ws.<span class="fn">send</span>(<span class="fn">JSON.stringify</span>({ tipo: <span class="str">'offer'</span>, data: pc.localDescription }));
+  };
+  pc.<span class="fn">createDataChannel</span>(<span class="str">'chat'</span>); <span class="cmt">// dispara negotiationneeded</span>
+}`,
+        why: 'Alguem tem que falar primeiro (a offer). Sem uma regra, os dois lados poderiam mandar offer ' +
+             'ao mesmo tempo (<i>glare</i>). Aqui a regra e "quem chegou por ultimo chama". O padrao ' +
+             'robusto pra isso e o <b>perfect negotiation</b> (passo 7 do roadmap).'
+      },
+      roleFirst: {
+        title: 'Voce e o PRIMEIRO na sala -> aguarde',
+        what: 'Sala vazia quando voce entrou. Nao ha com quem negociar ainda. Voce so vai agir quando ' +
+              'chegar uma <code>offer</code> pelo WebSocket.',
+        code:
+`<span class="cmt">// primeiro na sala: nao faz nada agora.</span>
+<span class="cmt">// quando o segundo entrar, o servidor manda 'pronto-pra-chamar' PRA ELE,</span>
+<span class="cmt">// e a offer dele chega aqui via ws.onmessage:</span>
+<span class="kw">if</span> (msg.tipo === <span class="str">'offer'</span>) { <span class="cmt">/* eu respondo com answer */</span> }`,
+        why: 'Se os dois tentassem iniciar, dava conflito. Dividir em "primeiro espera / segundo chama" ' +
+             'e a forma mais simples de garantir uma unica offer.'
+      },
+      offerRecv: {
+        title: 'Chegou uma offer pelo WebSocket -> respondo com answer',
+        what: 'Aplico a descricao remota, gero minha answer e devolvo pelo mesmo WebSocket. ' +
+              'Nenhum texto pra copiar &mdash; o servidor entrega no outro lado.',
+        code:
+`<span class="kw">if</span> (msg.tipo === <span class="str">'offer'</span>) {
+  <span class="fn">criarConexao</span>();
+  <span class="kw">await</span> pc.<span class="fn">setRemoteDescription</span>(msg.data);
+  <span class="kw">await</span> pc.<span class="fn">setLocalDescription</span>(<span class="kw">await</span> pc.<span class="fn">createAnswer</span>());
+  ws.<span class="fn">send</span>(<span class="fn">JSON.stringify</span>({ tipo: <span class="str">'answer'</span>, data: pc.localDescription }));
+}`,
+        why: 'Mesma troca offer/answer do Exemplo 1. A diferenca e so o transporte: WebSocket em vez de ' +
+             'ctrl+C / ctrl+V. O SDP aqui vai "magrinho" &mdash; sem candidatos embutidos &mdash; porque ' +
+             'eles vao chegar separados (trickle).'
+      },
+      answerRecv: {
+        title: 'Chegou a answer -> setRemoteDescription',
+        what: 'O lado que chamou recebeu a resposta. Agora os dois tem o SDP do outro. A negociacao ' +
+              'acabou; o ICE comeca a testar rotas.',
+        code:
+`<span class="kw">if</span> (msg.tipo === <span class="str">'answer'</span>) {
+  <span class="kw">await</span> pc.<span class="fn">setRemoteDescription</span>(msg.data);
+  <span class="cmt">// signalingState: have-local-offer -> stable</span>
+}`,
+        why: 'A partir daqui o WebSocket ainda serve pra transportar os candidatos que continuam ' +
+             'aparecendo dos dois lados. Depois que o ICE conecta, ele podia ate cair.'
+      },
+      trickleOut: {
+        title: 'pc.onicecandidate -> mando o candidato JA, pelo WebSocket',
+        what: 'Cada rota que o navegador descobre (host, srflx, relay) vira uma mensagem solta no ' +
+              'WebSocket, na hora. Nao espero a coleta terminar.',
+        code:
+`pc.<span class="fn">onicecandidate</span> = (e) => {
+  <span class="kw">if</span> (e.candidate) {
+    <span class="cmt">// TRICKLE: manda cada um assim que aparece</span>
+    ws.<span class="fn">send</span>(<span class="fn">JSON.stringify</span>({ tipo: <span class="str">'candidato'</span>, data: e.candidate }));
+  }
+};`,
+        why: 'No Exemplo 1 o <code>waitForIceComplete()</code> segurava tudo por ~4s pra caber num SDP so. ' +
+             'Com um canal sempre aberto isso e desperdicio: manda o primeiro candidato bom e o ICE ja ' +
+             'comeca a testar enquanto os outros ainda chegam. E assim que WebRTC funciona em producao.'
+      },
+      trickleIn: {
+        title: 'Chegou um candidato do outro peer -> pc.addIceCandidate(c)',
+        what: 'Funcao que voce NUNCA usou no Exemplo 1 (la os candidatos vinham dentro do SDP). ' +
+              'Agora eles chegam avulsos e voce injeta um por um.',
+        code:
+`<span class="kw">if</span> (msg.tipo === <span class="str">'candidato'</span>) {
+  <span class="kw">try</span> {
+    <span class="kw">await</span> pc.<span class="fn">addIceCandidate</span>(msg.data);
+  } <span class="kw">catch</span> (err) {
+    <span class="cmt">// normal se veio antes do setRemoteDescription</span>
+    filaCandidatos.<span class="fn">push</span>(msg.data);
+  }
+}`,
+        why: 'Um candidato pode chegar no WebSocket ANTES de voce ter feito ' +
+             '<code>setRemoteDescription</code>. Ai o <code>addIceCandidate</code> lanca erro. A solucao ' +
+             'e uma <b>fila</b>: guarda os que chegaram cedo e re-injeta depois que a descricao remota ' +
+             'estiver setada. Essa e a fonte #1 de bug em signaling caseiro.'
+      },
+      queueFlush: {
+        title: 'setRemoteDescription pronto -> esvazia a fila de candidatos',
+        what: 'Agora que o SDP remoto esta aplicado, os candidatos que chegaram cedo demais podem ' +
+              'finalmente entrar.',
+        code:
+`<span class="kw">await</span> pc.<span class="fn">setRemoteDescription</span>(desc);
+<span class="kw">for</span> (<span class="kw">const</span> c <span class="kw">of</span> filaCandidatos) {
+  <span class="kw">await</span> pc.<span class="fn">addIceCandidate</span>(c).<span class="fn">catch</span>(() => {});
+}
+filaCandidatos.length = <span class="str">0</span>;`,
+        why: 'Ordem das mensagens na rede nao e garantida: um <code>candidato</code> pode ultrapassar a ' +
+             '<code>offer</code>. Sem a fila, esse candidato seria perdido e voce talvez nem conectasse, ' +
+             'ou conectaria por uma rota pior.'
+      },
+      iceChecking: {
+        title: 'iceConnectionState: checking',
+        what: 'O ICE esta testando pares (meu candidato, teu candidato) com pacotes STUN. ' +
+              'Com trickle, isso comeca mais cedo &mdash; assim que o primeiro par existe.',
+        code:
+`pc.<span class="fn">oniceconnectionstatechange</span> = () => {
+  <span class="cmt">// new -> checking -> connected -> completed</span>
+  <span class="cmt">//              \\-> failed</span>
+  <span class="fn">console.log</span>(pc.iceConnectionState);
+};`,
+        why: 'A vantagem do trickle aparece aqui: os checks de conectividade rodam em paralelo com a ' +
+             'coleta que ainda esta acontecendo. Menos tempo parado esperando.'
+      },
+      iceConnected: {
+        title: 'iceConnectionState: connected  ✅',
+        what: 'Um par de candidatos passou. Existe caminho UDP direto entre os dois navegadores. ' +
+              'O DataChannel abre logo em seguida.',
+        code:
+`<span class="kw">const</span> stats = <span class="kw">await</span> pc.<span class="fn">getStats</span>();
+stats.<span class="fn">forEach</span>(r => {
+  <span class="kw">if</span> (r.type === <span class="str">'candidate-pair'</span> && r.state === <span class="str">'succeeded'</span>)
+    <span class="fn">console.log</span>(r.localCandidateId, r.remoteCandidateId);
+});`,
+        why: 'A partir daqui o servidor de signaling nao faz mais falta &mdash; a rota P2P esta de pe. ' +
+             'Num app real voce poderia fechar o WebSocket (ou deixar aberto so pra ICE restart se a ' +
+             'rede mudar).'
+      },
+      channelOpen: {
+        title: 'channel.onopen — CANAL P2P ABERTO',
+        what: 'SCTP sobre DTLS subiu. <code>channel.send()</code> entrega bytes direto no outro ' +
+              'navegador, sem servidor no meio.',
+        code:
+`channel.<span class="fn">onopen</span> = () => { input.disabled = <span class="kw">false</span>; };
+channel.<span class="fn">send</span>(<span class="str">'Oi?'</span>);
+channel.<span class="fn">onmessage</span> = e => <span class="fn">console.log</span>(e.data);`,
+        why: 'Identico ao Exemplo 1. O caminho ate aqui e que foi automatico. Latencia tipica PC<->4G: ' +
+             '30-80ms.'
+      },
+      msgRecv: {
+        title: 'channel.onmessage',
+        what: 'Chegou um pacote do outro peer pelo caminho ICE. Nada disso passa pelo servidor de ' +
+              'signaling.',
+        code:
+`channel.<span class="fn">onmessage</span> = e => {
+  <span class="fn">log</span>(<span class="str">'recebeu: '</span> + e.data);
+};`,
+        why: 'Depois que conecta, nao existe mais "quem chamou". Full-duplex pelos dois lados.'
+      },
+      peerLeft: {
+        title: 'O outro peer saiu da sala',
+        what: 'O servidor avisou <code>peer-saiu</code>. A conexao P2P pode continuar viva um tempo, mas ' +
+              'nao ha mais com quem renegociar.',
+        code:
+`<span class="kw">if</span> (msg.tipo === <span class="str">'peer-saiu'</span>) {
+  <span class="fn">log</span>(<span class="str">'o outro lado desconectou'</span>);
+  <span class="cmt">// dependendo do app: fecha pc, mostra "reconectando"...</span>
+}`,
+        why: 'Ciclo de vida: gente entra e sai de salas. Um app real trata isso &mdash; limpa a conexao, ' +
+             'oferece reconectar, etc. Infra basica de qualquer coisa realtime.'
+      },
+      wsError: {
+        title: 'WebSocket falhou / fechou inesperado',
+        what: 'Nao deu pra abrir (ou caiu) a conexao com o servidor de signaling. Sem esse cano, os ' +
+              'dois navegadores nao conseguem trocar os enderecos iniciais.',
+        code:
+`ws.<span class="fn">onerror</span> = () => <span class="fn">log</span>(<span class="str">'erro no WebSocket'</span>);
+ws.<span class="fn">onclose</span> = (e) => <span class="fn">log</span>(<span class="str">'ws fechou: '</span> + e.code);`,
+        why: 'Causas comuns: URL errada, servidor <code>signaling-server.js</code> nao esta rodando, o ' +
+             'tunel (localtunnel/ngrok) caiu, ou a pagina intersticial do loca.lt bloqueou. Isso NAO ' +
+             'afeta uma conexao P2P que ja tenha conectado &mdash; so impede novas.'
+      }
+    };
+
+    function explain(key) {
+      const t = TOPICS[key];
+      if (!t) return;
+      $('expTitle').textContent = t.title;
+      $('expWhat').innerHTML = t.what;
+      $('expBody').innerHTML =
+        '<pre class="code">' + t.code + '</pre>' +
+        '<div class="exp-why"><b>Por que e assim:</b> ' + t.why + '</div>';
+    }
+
+    // ---------- state tracks ----------
+    function markTrack(trackId, value) {
+      document.querySelectorAll('#' + trackId + ' span').forEach(s => {
+        s.classList.toggle('on', s.dataset.s === value);
+      });
+    }
+
+    // ---------- candidatos ----------
+    function addCandidateRow(dir, c) {
+      const tb = $('candTable').querySelector('tbody');
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td class="small">' + dir + '</td>' +
+        '<td><span class="pill ' + c.type + '">' + c.type + '</span></td>' +
+        '<td>' + (c.address || '?') + ':' + (c.port || '?') + '</td>' +
+        '<td>' + (c.protocol || 'udp') + '</td>';
+      tb.appendChild(tr);
+    }
+
+    // ===================== ESTADO =====================
+    const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+    let ws = null;
+    let pc = null;
+    let channel = null;
+    let souPrimeiro = null;          // true = espero; false = eu chamo
+    let temDescricaoRemota = false;
+    const filaCandidatos = [];       // candidatos que chegaram cedo demais
+
+    let sawSrflx = false, sawRelay = false, sawHost = false;
+
+    function setBadge(el, text, cls) {
+      el.textContent = text;
+      el.className = 'badge' + (cls ? ' ' + cls : '');
+    }
+
+    // ---------- WebRTC ----------
+    function wireChannel(ch) {
+      channel = ch;
+      ch.onopen = () => {
+        log('>>> CANAL P2P ABERTO! <<<', 'log-ok');
+        $('msg').disabled = false;
+        explain('channelOpen');
+      };
+      ch.onclose = () => { $('msg').disabled = true; log('canal fechado.', 'log-warn'); };
+      ch.onmessage = e => { log('recebeu: ' + e.data, 'log-ok'); explain('msgRecv'); };
+    }
+
+    function criarConexao() {
+      if (pc) return;
+      pc = new RTCPeerConnection(config);
+      markTrack('track-sig', 'stable');
+      markTrack('track-ice', 'new');
+
+      pc.onsignalingstatechange = () => {
+        log('signalingState: ' + pc.signalingState, 'log-ev');
+        const map = { 'stable': 'stable', 'have-local-offer': 'have-local-offer',
+                      'have-remote-offer': 'have-remote-offer' };
+        markTrack('track-sig', map[pc.signalingState] || 'stable');
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        const s = pc.iceConnectionState;
+        log('iceConnectionState: ' + s, s === 'failed' ? 'log-err' : 'log-ev');
+        markTrack('track-ice', s);
+        if (s === 'checking') explain('iceChecking');
+        if (s === 'connected' || s === 'completed') explain('iceConnected');
+      };
+
+      // TRICKLE: cada candidato local sai na hora pelo WebSocket
+      pc.onicecandidate = e => {
+        if (e.candidate) {
+          const c = e.candidate;
+          log('candidato local [' + c.type + '] ' + (c.address || '') + ':' + (c.port || '') + ' -> ws', 'log-info');
+          addCandidateRow('local', c);
+          wsSend({ tipo: 'candidato', data: c });
+          if (c.type === 'host' && !sawHost) { sawHost = true; explain('trickleOut'); }
+          else if (c.type === 'srflx' && !sawSrflx) { sawSrflx = true; }
+          else if (c.type === 'relay' && !sawRelay) { sawRelay = true; }
+        } else {
+          log('coleta local de candidatos terminou (mas o ICE ja estava testando)', 'log-info');
+        }
+      };
+
+      // o lado que NAO cria o DataChannel recebe por aqui
+      pc.ondatachannel = e => { wireChannel(e.channel); };
+    }
+
+    async function aplicarDescricaoRemota(desc) {
+      await pc.setRemoteDescription(desc);
+      temDescricaoRemota = true;
+      if (filaCandidatos.length) {
+        log('esvaziando fila de ' + filaCandidatos.length + ' candidato(s) que chegou cedo', 'log-warn');
+        explain('queueFlush');
+        for (const c of filaCandidatos) {
+          try { await pc.addIceCandidate(c); } catch (err) { /* ignora */ }
+        }
+        filaCandidatos.length = 0;
+      }
+    }
+
+    // sou o SEGUNDO da sala: eu inicio a chamada
+    async function iniciarComoChamador() {
+      souPrimeiro = false;
+      setBadge($('roleBadge'), 'chamador (2o)', 'on');
+      explain('roleSecond');
+      criarConexao();
+      pc.onnegotiationneeded = async () => {
+        try {
+          await pc.setLocalDescription(await pc.createOffer());
+          log('offer criada -> ws', 'log-ws');
+          wsSend({ tipo: 'offer', data: pc.localDescription });
+        } catch (err) { log('erro no negotiationneeded: ' + err.message, 'log-err'); }
+      };
+      wireChannel(pc.createDataChannel('chat')); // dispara negotiationneeded
+    }
+
+    // ---------- WebSocket / signaling ----------
+    function wsSend(obj) {
+      if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
+    }
+
+    function conectar() {
+      const url = $('wsUrl').value.trim();
+      const sala = $('sala').value.trim();
+      if (!url) { log('preencha a URL do servidor de signaling', 'log-err'); return; }
+      if (!sala) { log('preencha o nome da sala', 'log-err'); return; }
+      if (!/^wss?:\/\//.test(url)) { log('a URL precisa comecar com wss:// (ou ws:// se for local)', 'log-err'); return; }
+
+      try { localStorage.setItem(LS_KEY, url); } catch (e) {}
+
+      // reset
+      resetTudo();
+      log('abrindo WebSocket com ' + url + ' ...', 'log-ws');
+
+      try {
+        ws = new WebSocket(url);
+      } catch (err) {
+        log('nao consegui criar o WebSocket: ' + err.message, 'log-err');
+        explain('wsError');
+        return;
+      }
+
+      ws.onopen = () => {
+        log('WebSocket aberto. entrando na sala "' + sala + '"', 'log-ws');
+        setBadge($('wsBadge'), 'aberto', 'ok');
+        $('connectBtn').disabled = true;
+        $('leaveBtn').disabled = false;
+        wsSend({ tipo: 'entrar', sala });
+        explain('wsOpen');
+      };
+
+      ws.onmessage = async (ev) => {
+        let msg;
+        try { msg = JSON.parse(ev.data); } catch { return; }
+
+        // O servidor minimo atual so repassa mensagens. Ele nao manda
+        // 'pronto-pra-chamar' / 'peer-saiu' / 'na-sala'. Tratamos os dois casos:
+        //  - se o servidor mandar esses tipos (versao melhorada), usamos.
+        //  - senao, a heuristica: quem receber a 1a 'offer' e o receptor;
+        //    quem entrou e nao recebeu nada em 800ms assume que e o 1o.
+
+        if (msg.tipo === 'na-sala' || msg.tipo === 'pronto-pra-chamar') {
+          const qtd = msg.peers || msg.total || 2;
+          setBadge($('peersBadge'), String(qtd));
+          if (msg.tipo === 'pronto-pra-chamar' || qtd >= 2) {
+            aguardando = false;
+            iniciarComoChamador();
+          } else {
+            souPrimeiro = true;
+            setBadge($('roleBadge'), 'aguardando (1o)', '');
+            explain('roleFirst');
+          }
+          return;
+        }
+
+        if (msg.tipo === 'peer-saiu') {
+          setBadge($('peersBadge'), '1');
+          log('o outro peer saiu da sala', 'log-warn');
+          explain('peerLeft');
+          return;
+        }
+
+        if (msg.tipo === 'offer') {
+          aguardando = false;
+          souPrimeiro = true; // recebi a offer -> sou o receptor
+          setBadge($('roleBadge'), 'receptor (1o)', 'on');
+          setBadge($('peersBadge'), '2');
+          log('offer recebida do outro peer', 'log-ws');
+          explain('offerRecv');
+          criarConexao();
+          await aplicarDescricaoRemota(msg.data);
+          await pc.setLocalDescription(await pc.createAnswer());
+          log('answer criada -> ws', 'log-ws');
+          wsSend({ tipo: 'answer', data: pc.localDescription });
+          return;
+        }
+
+        if (msg.tipo === 'answer') {
+          log('answer recebida do outro peer', 'log-ws');
+          explain('answerRecv');
+          setBadge($('peersBadge'), '2');
+          await aplicarDescricaoRemota(msg.data);
+          return;
+        }
+
+        if (msg.tipo === 'candidato') {
+          const c = msg.data;
+          addCandidateRow('remoto', c);
+          if (!pc || !temDescricaoRemota) {
+            filaCandidatos.push(c);
+            log('candidato remoto chegou cedo -> fila (' + filaCandidatos.length + ')', 'log-warn');
+            explain('trickleIn');
+          } else {
+            try {
+              await pc.addIceCandidate(c);
+              log('candidato remoto [' + (c.type || '?') + '] -> addIceCandidate', 'log-info');
+            } catch (err) {
+              log('addIceCandidate falhou: ' + err.message, 'log-warn');
+            }
+          }
+          return;
+        }
+      };
+
+      ws.onerror = () => {
+        log('erro no WebSocket (URL errada? servidor no ar? tunel caiu?)', 'log-err');
+        setBadge($('wsBadge'), 'erro', 'err');
+        explain('wsError');
+      };
+
+      ws.onclose = (e) => {
+        log('WebSocket fechou (code ' + e.code + ')', 'log-warn');
+        setBadge($('wsBadge'), 'fechado', '');
+        $('connectBtn').disabled = false;
+        $('leaveBtn').disabled = true;
+        if (!e.wasClean) explain('wsError');
+      };
+
+      // heuristica pro servidor minimo que nao avisa quem e o 1o/2o:
+      // se em 900ms ninguem falou nada, assumo que sou o primeiro e espero uma offer.
+      aguardando = true;
+      setTimeout(() => {
+        if (aguardando && ws && ws.readyState === WebSocket.OPEN && souPrimeiro === null) {
+          souPrimeiro = true;
+          setBadge($('roleBadge'), 'aguardando (1o)', '');
+          log('ninguem respondeu -> assumo que sou o 1o. aguardando a offer do 2o...', 'log-info');
+          explain('roleFirst');
+        }
+      }, 900);
+    }
+    let aguardando = false;
+
+    function sair() {
+      if (ws) { try { ws.close(1000); } catch (e) {} }
+      resetTudo();
+      setBadge($('wsBadge'), 'fechado', '');
+      setBadge($('roleBadge'), '—', '');
+      setBadge($('peersBadge'), '0', '');
+      $('connectBtn').disabled = false;
+      $('leaveBtn').disabled = true;
+      log('voce saiu.', 'log-warn');
+    }
+
+    function resetTudo() {
+      if (channel) { try { channel.close(); } catch (e) {} channel = null; }
+      if (pc) { try { pc.close(); } catch (e) {} pc = null; }
+      souPrimeiro = null;
+      temDescricaoRemota = false;
+      filaCandidatos.length = 0;
+      sawSrflx = sawRelay = sawHost = false;
+      $('msg').disabled = true;
+      $('candTable').querySelector('tbody').innerHTML = '';
+      markTrack('track-sig', 'stable');
+      markTrack('track-ice', 'new');
+    }
+
+    // ---------- chat ----------
+    $('msg').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && e.target.value && channel && channel.readyState === 'open') {
+        channel.send(e.target.value);
+        log('enviou: ' + e.target.value, 'log-ok');
+        e.target.value = '';
+      }
+    });
+
+    // ---------- boot ----------
+    $('connectBtn').addEventListener('click', conectar);
+    $('leaveBtn').addEventListener('click', sair);
+    try {
+      const saved = localStorage.getItem(LS_KEY);
+      if (saved) $('wsUrl').value = saved;
+    } catch (e) {}
+  })();
+  </script>
+</body>
+</html>

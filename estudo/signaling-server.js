@@ -23,8 +23,17 @@ wss.on('connection', (ws) => {
     if (msg.tipo === 'entrar') {
       sala = msg.sala;
       if (!salas.has(sala)) salas.set(sala, new Set());
-      salas.get(sala).add(ws);
-      console.log(`peer entrou na sala "${sala}" (${salas.get(sala).size} na sala)`);
+      const set = salas.get(sala);
+      set.add(ws);
+      const n = set.size;
+      console.log(`peer entrou na sala "${sala}" (${n} na sala)`);
+
+      // avisa este peer quantos estao na sala e se ele deve iniciar a chamada.
+      // convencao: o 1o espera, o 2o (ou mais) dispara a offer.
+      ws.send(JSON.stringify({
+        tipo: n >= 2 ? 'pronto-pra-chamar' : 'na-sala',
+        peers: n
+      }));
       return;
     }
 
@@ -40,8 +49,15 @@ wss.on('connection', (ws) => {
 
   ws.on('close', () => {
     if (sala && salas.has(sala)) {
-      salas.get(sala).delete(ws);
-      if (salas.get(sala).size === 0) salas.delete(sala);
+      const set = salas.get(sala);
+      set.delete(ws);
+      // avisa quem ficou que o outro lado saiu
+      for (const outro of set) {
+        if (outro.readyState === ws.OPEN) {
+          outro.send(JSON.stringify({ tipo: 'peer-saiu', peers: set.size }));
+        }
+      }
+      if (set.size === 0) salas.delete(sala);
     }
   });
 });
